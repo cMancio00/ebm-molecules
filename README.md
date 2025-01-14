@@ -1,5 +1,31 @@
 # Tesi
 
+# Install requirements
+
+> [!NOTE]
+> The project uses `Python 3.12.3` and `CUDA 12.4`.
+
+In the project directory, execute the following commands:
+
+```bash
+python3 -m venv .venv
+```
+> [!NOTE]
+> The name of the virtual environment will match the name of the hidden folder, 
+> in this case, `.venv`.
+
+To activate the virtual environment, run:
+
+```bash
+source .venv/bin/activate
+```
+Next, install the required packages with:
+
+```bash
+pip install --upgrade pip & pip install -r requirements.txt
+```
+
+
 # Papers
 
 **General EBM**:
