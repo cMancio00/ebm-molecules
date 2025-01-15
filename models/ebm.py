@@ -1,6 +1,6 @@
 import torch
 from models import Small_CNN
-from utils.Sampler import Sampler
+from utils import Sampler
 import pytorch_lightning as pl
 import torch.optim as optim
 
