@@ -1,0 +1,8 @@
+alpha: 0.1
+batch_size: 128
+beta1: 0.0
+img_shape: !!python/tuple
+- 1
+- 28
+- 28
+lr: 0.0001

@@ -2,7 +2,7 @@ import random
 import torch
 import pytorch_lightning as pl
 import torchvision
-from utils import Sampler
+from utils.Sampler import Sampler
 
 class GenerateCallback(pl.Callback):
 
