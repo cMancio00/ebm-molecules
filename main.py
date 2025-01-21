@@ -12,6 +12,7 @@ import torchvision
 
 print("CUDA available:", torch.cuda.is_available())
 device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
+torch.set_float32_matmul_precision('medium')
 
 DATASET_PATH = "./datasets"
 CHECKPOINT_PATH = "./saved_models/"
@@ -32,11 +33,11 @@ def prepare_data(train_batch_size, test_batch_size, validation_split):
     validation_size = int(len(dataset) * validation_split)
     train_size = len(dataset) - validation_size
     train_set, validation_set = random_split(dataset, [train_size, validation_size])
-    train_loader = DataLoader(train_set, batch_size=128, shuffle=True,  drop_last=True,  num_workers=4, pin_memory=True)
+    train_loader = DataLoader(train_set, batch_size=128, shuffle=True,  drop_last=True,  num_workers=8, pin_memory=True)
     validation_loader = DataLoader(validation_set, batch_size=128, shuffle=False)
     
     test_set = datasets.MNIST('./datasets', train=False, transform=transform)
-    test_loader  = DataLoader(test_set,  batch_size=256, shuffle=False, drop_last=False, num_workers=4)
+    test_loader  = DataLoader(test_set,  batch_size=128, shuffle=False, drop_last=False, num_workers=4)
     return train_loader, validation_loader, test_loader
 
 def train_model(train_loader, test_loader, **kwargs):
@@ -86,12 +87,13 @@ def main():
     print(f'Validation dataset size: {len(validation_loader.dataset)}')
     print(f'Test dataset size: {len(test_loader.dataset)}')
     
-    # model = train_model(train_loader, test_loader, img_shape=(1,28,28),
-    #                 batch_size=train_loader.batch_size,
-    #                 lr=1e-4,
-    #                 beta1=0.0)
-    
-    model = DeepEnergyModel.load_from_checkpoint("epoch=36-step=14726.ckpt")
+    model = train_model(train_loader, test_loader, img_shape=(1,28,28),
+                    batch_size=train_loader.batch_size,
+                    lr=1e-4,
+                    beta1=0.0)
+    # ckpt = "./saved_models/MNIST/lightning_logs/version_2/checkpoints/epoch=59-step=5940.ckpt"
+    # ckpt = "./epoch=36-step=14726.ckpt"
+    # model = DeepEnergyModel.load_from_checkpoint(ckpt)
     model.to(device)
     pl.seed_everything(43)
     callback = GenerateCallback(batch_size=4, vis_steps=8, num_steps=256)
@@ -104,6 +106,7 @@ def main():
         imgs_to_plot = torch.cat([imgs_per_step[0:1,i],imgs_to_plot], dim=0)
         # grid = torchvision.utils.make_grid(imgs_to_plot, nrow=imgs_to_plot.shape[0], normalize=True, range=(-1,1), pad_value=0.5, padding=2)
         grid = torchvision.utils.make_grid(imgs_to_plot, nrow=imgs_to_plot.shape[0], normalize=True, pad_value=0.5, padding=2)
+        
         grid = grid.permute(1, 2, 0)
         plt.figure(figsize=(8,8))
         plt.imshow(grid)
@@ -111,11 +114,7 @@ def main():
         plt.xticks([(imgs_per_step.shape[-1]+2)*(0.5+j) for j in range(callback.vis_steps+1)],
                 labels=[1] + list(range(step_size,imgs_per_step.shape[0]+1,step_size)))
         plt.yticks([])
-    plt.savefig("./generations.png")
-
-
-
-
+        plt.savefig(f"./generations_{i}.png")
 
 
 if __name__ == '__main__':
