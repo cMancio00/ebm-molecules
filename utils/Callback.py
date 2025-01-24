@@ -27,7 +27,7 @@ class GenerateCallback(pl.Callback):
 
     def generate_imgs(self, pl_module):
         pl_module.eval()
-        start_imgs = torch.rand((self.batch_size,) + pl_module.hparams["img_shape"]).to(pl_module.device)
+        start_imgs = torch.rand((self.batch_size,) + tuple(pl_module.hparams["img_shape"])).to(pl_module.device)
         start_imgs = start_imgs * 2 - 1
         torch.set_grad_enabled(True)  # Tracking gradients for sampling necessary
         imgs_per_step = Sampler.generate_samples(pl_module.cnn, start_imgs, steps=self.num_steps, step_size=10, return_img_per_step=True)

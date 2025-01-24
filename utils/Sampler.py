@@ -15,7 +15,7 @@ class Sampler:
         """
         super().__init__()
         self.model = model
-        self.img_shape = img_shape
+        self.img_shape = tuple(img_shape)
         self.sample_size = sample_size
         self.max_len = max_len
         self.examples = [(torch.rand((1,)+img_shape)*2-1) for _ in range(self.sample_size)]

@@ -1,7 +1,7 @@
 import torch
 from models import Small_CNN
 from utils.Sampler import Sampler
-import pytorch_lightning as pl
+import lightning as pl
 import torch.optim as optim
 
 class DeepEnergyModel(pl.LightningModule):
@@ -11,7 +11,7 @@ class DeepEnergyModel(pl.LightningModule):
         self.save_hyperparameters()
 
         self.cnn = Small_CNN(**CNN_args)
-        self.sampler = Sampler(self.cnn, img_shape=img_shape, sample_size=batch_size)
+        self.sampler = Sampler(self.cnn, img_shape=tuple(img_shape), sample_size=batch_size)
         self.example_input_array = torch.zeros(1, *img_shape)
 
     def forward(self, x):
