@@ -1,6 +1,6 @@
 from typing import override
 
-import pytorch_lightning as pl
+import lightning as pl
 from torch.utils.data import random_split, DataLoader
 from torchvision import transforms
 from torchvision.datasets import MNIST
