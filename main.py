@@ -34,7 +34,6 @@ def cli_main():
                         ])
         dm = MNISTDataModule(batch_size=128)
         model = DeepEnergyModel(img_shape=(1,28,28), lr=1e-4, beta1=0.0, batch_size=dm.batch_size)
-        model = torch.compile(model, mode="reduce-overhead")
         trainer.fit(model=model,datamodule=dm)
         
         # cli = LightningCLI(DeepEnergyModel, MNISTDataModule)
