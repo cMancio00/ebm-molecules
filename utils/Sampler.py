@@ -1,11 +1,11 @@
 import random
 import torch
 import numpy as np
-
+from lightning import LightningModule
 
 class Sampler:
 
-    def __init__(self, model, img_shape, sample_size, max_len=8192):
+    def __init__(self, model: LightningModule, img_shape: tuple[int, int, int], sample_size: int, max_len: int=8192):
         """
         Inputs:
             model - Neural network to use for modeling E_theta
@@ -18,10 +18,10 @@ class Sampler:
         self.img_shape = tuple(img_shape)
         self.sample_size = sample_size
         self.max_len = max_len
-        self.examples = [(torch.rand((1,)+img_shape)*2-1) for _ in range(self.sample_size)]
+        self.buffer = [(torch.rand((1,)+img_shape)*2-1) for _ in range(self.sample_size)]
         self.device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
 
-    def sample_new_exmps(self, steps=60, step_size=10):
+    def sample_new_exmps(self, steps: int=60, step_size: int=10):
         """
         Function for getting a new batch of "fake" images.
         Inputs:
@@ -29,18 +29,20 @@ class Sampler:
             step_size - Learning rate nu in the algorithm above
         """
         # Choose 95% of the batch from the buffer, 5% generate from scratch
-        n_new = np.random.binomial(self.sample_size, 0.05)
-        rand_imgs = torch.rand((n_new,) + self.img_shape) * 2 - 1
-        old_imgs = torch.cat(random.choices(self.examples, k=self.sample_size-n_new), dim=0)
-        inp_imgs = torch.cat([rand_imgs, old_imgs], dim=0).detach().to(self.device)
+        num_new_samples = np.random.binomial(self.sample_size, 0.05)
+        new_rand_tensors = torch.rand((num_new_samples,) + self.img_shape) * 2 - 1
+        # Randomlly select the old tensor from the buffer
+        old_tensors = torch.cat(random.choices(self.buffer, k=self.sample_size-num_new_samples), dim=0)
+        # Concatenate the old tensors and the new ones in the batch dimension
+        mcmc_starting_tensors = torch.cat([new_rand_tensors, old_tensors], dim=0).detach().to(self.device)
 
         # Perform MCMC sampling
-        inp_imgs = Sampler.generate_samples(self.model, inp_imgs, steps=steps, step_size=step_size)
+        mcmc_samples = Sampler.generate_samples(self.model, mcmc_starting_tensors, steps=steps, step_size=step_size)
 
         # Add new images to the buffer and remove old ones if needed
-        self.examples = list(inp_imgs.to(torch.device("cpu")).chunk(self.sample_size, dim=0)) + self.examples
-        self.examples = self.examples[:self.max_len]
-        return inp_imgs
+        self.buffer = list(mcmc_samples.to(torch.device("cpu")).chunk(self.sample_size, dim=0)) + self.buffer
+        self.buffer = self.buffer[:self.max_len]
+        return mcmc_samples
 
     @staticmethod
     def generate_samples(model, inp_imgs, steps=60, step_size=10, return_img_per_step=False):
