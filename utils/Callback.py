@@ -1,6 +1,6 @@
 import random
 import torch
-import pytorch_lightning as pl
+import lightning as pl
 import torchvision
 from utils.Sampler import Sampler
 
@@ -13,7 +13,7 @@ class GenerateCallback(pl.Callback):
         self.num_steps = num_steps           # Number of steps to take during generation
         self.every_n_epochs = every_n_epochs # Only save those images every N epochs (otherwise tensorboard gets quite large)
 
-    def on_epoch_end(self, trainer, pl_module):
+    def on_train_epoch_end(self, trainer, pl_module):
         # Skip for all other epochs
         if trainer.current_epoch % self.every_n_epochs == 0:
             # Generate images
@@ -22,8 +22,10 @@ class GenerateCallback(pl.Callback):
             for i in range(imgs_per_step.shape[1]):
                 step_size = self.num_steps // self.vis_steps
                 imgs_to_plot = imgs_per_step[step_size-1::step_size,i]
-                grid = torchvision.utils.make_grid(imgs_to_plot, nrow=imgs_to_plot.shape[0], normalize=True, range=(-1,1))
+                grid = torchvision.utils.make_grid(imgs_to_plot, nrow=imgs_to_plot.shape[0], normalize=True)
                 trainer.logger.experiment.add_image(f"generation_{i}", grid, global_step=trainer.current_epoch)
+
+
 
     def generate_imgs(self, pl_module):
         pl_module.eval()

@@ -82,7 +82,7 @@ class Sampler:
             # Part 2: calculate gradients for the current input.
             out_imgs = -model(inp_imgs)
             out_imgs.sum().backward()
-            inp_imgs.grad.data.clamp_(-0.03, 0.03) # For stabilizing and preventing too high gradients
+            inp_imgs.grad.data.clamp_(-0.03, 0.03)
 
             # Apply gradients to our current samples
             inp_imgs.data.add_(-step_size * inp_imgs.grad.data)

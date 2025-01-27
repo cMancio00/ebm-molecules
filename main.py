@@ -1,14 +1,15 @@
 import torch
 import matplotlib.pyplot as plt
-import pytorch_lightning as pl
+import lightning as pl
 import os
 from models.ebm import DeepEnergyModel
-from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
+from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
 from utils.Callback import GenerateCallback, OutlierCallback, SamplerCallback
 import torchvision
 from DataModules import MNISTDataModule
 from datetime import datetime
 from lightning.pytorch.cli import LightningCLI
+from lightning.pytorch.loggers import TensorBoardLogger
 
 DATASET_PATH = "./datasets"
 CHECKPOINT_PATH = "./saved_models/"
@@ -19,22 +20,29 @@ torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 
 def cli_main():
-        # trainer = pl.Trainer(
-        #         max_epochs=5,
-        #         gradient_clip_val=0.1,
-        #         callbacks=[ModelCheckpoint(dirpath=CHECKPOINT_PATH,save_weights_only=True, mode="min", monitor='val_contrastive_divergence'),
-        #                 GenerateCallback(every_n_epochs=1),
-        #                 SamplerCallback(every_n_epochs=1),
-        #                 OutlierCallback(),
-        #                 LearningRateMonitor("epoch")
-        #                 ])
-        # dm = MNISTDataModule(batch_size=256)
-        # model = DeepEnergyModel(img_shape=(1,28,28), lr=1e-4, beta1=0.0, batch_size=dm.batch_size)
+        pl.seed_everything(42)
+        logger = TensorBoardLogger("tb_logs")
+        trainer = pl.Trainer(
+                max_epochs=60,
+                gradient_clip_val=0.1,
+                logger=logger,
+                callbacks=[ModelCheckpoint(dirpath=CHECKPOINT_PATH,save_weights_only=True, mode="min", monitor='val_contrastive_divergence'),
+                        GenerateCallback(every_n_epochs=5),
+                        SamplerCallback(every_n_epochs=5),
+                        OutlierCallback(),
+                        LearningRateMonitor("epoch")
+                        ])
+        dm = MNISTDataModule(batch_size=128)
+        model = DeepEnergyModel(img_shape=(1,28,28), lr=1e-4, beta1=0.0, batch_size=dm.batch_size)
+        model = torch.compile(model, mode="reduce-overhead")
+        trainer.fit(model=model,datamodule=dm)
         
-        cli = LightningCLI(DeepEnergyModel, MNISTDataModule)
+        # cli = LightningCLI(DeepEnergyModel, MNISTDataModule)
 
+        pl.seed_everything(42)
         callback = GenerateCallback(batch_size=4, vis_steps=8, num_steps=256)
-        imgs_per_step = callback.generate_imgs(cli.model)
+        # imgs_per_step = callback.generate_imgs(cli.model)
+        imgs_per_step = callback.generate_imgs(model)
         imgs_per_step = imgs_per_step.cpu()
         
         for i in range(imgs_per_step.shape[1]):
@@ -61,8 +69,6 @@ def main():
     pass
 
 
-
 if __name__ == '__main__':
     cli_main()
-
 

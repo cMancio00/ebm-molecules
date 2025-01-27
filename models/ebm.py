@@ -1,4 +1,5 @@
 import torch
+import torchvision
 from models import Small_CNN
 from utils.Sampler import Sampler
 import lightning as pl
@@ -42,7 +43,7 @@ class DeepEnergyModel(pl.LightningModule):
         reg_loss = self.hparams.alpha * (real_out ** 2 + fake_out ** 2).mean()
         cdiv_loss = fake_out.mean() - real_out.mean()
         loss = reg_loss + cdiv_loss
-
+        
         # Logging
         self.log('loss', loss)
         self.log('loss_regularization', reg_loss)
@@ -50,7 +51,7 @@ class DeepEnergyModel(pl.LightningModule):
         self.log('metrics_avg_real', real_out.mean())
         self.log('metrics_avg_fake', fake_out.mean())
         return loss
-
+    
     def validation_step(self, batch, batch_idx):
         # For validating, we calculate the contrastive divergence between purely random images and unseen examples
         # Note that the validation/test step of energy-based models depends on what we are interested in the model
@@ -64,3 +65,4 @@ class DeepEnergyModel(pl.LightningModule):
         self.log('val_contrastive_divergence', cdiv)
         self.log('val_fake_out', fake_out.mean())
         self.log('val_real_out', real_out.mean())
+        
