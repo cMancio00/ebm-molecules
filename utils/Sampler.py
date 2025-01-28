@@ -20,7 +20,6 @@ class Sampler:
         self.sample_size = sample_size
         self.max_len = max_len
         self.buffer = [(torch.rand((1,) + img_shape) * 2 - 1) for _ in range(self.sample_size)]
-        # self.device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
 
     def sample_new_tensor(self, steps: int = 60, step_size: int = 10):
         """
