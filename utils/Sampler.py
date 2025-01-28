@@ -21,11 +21,11 @@ class Sampler:
         self.buffer = [(torch.rand((1,)+img_shape)*2-1) for _ in range(self.sample_size)]
         self.device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
 
-    def sample_new_exmps(self, steps: int=60, step_size: int=10):
+    def sample_new_tensor(self, steps: int=60, step_size: int=10):
         """
-        Function for getting a new batch of "fake" images.
+        Function for getting a new batch of sampled tensors via MCMC.
         Inputs:
-            steps - Number of iterations in the MCMC algorithm
+            steps - Number of iterations in the MCMC.
             step_size - Learning rate nu in the algorithm above
         """
         # Choose 95% of the batch from the buffer, 5% generate from scratch

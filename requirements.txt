@@ -40,3 +40,4 @@ typing_extensions==4.12.2
 tzdata==2024.2
 
 pytorch-lightning~=2.5.0.post0
+lightning~=2.5.0.post0

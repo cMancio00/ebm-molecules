@@ -1,3 +1,3 @@
-from .Sampler import Sampler
+from Sampler import Sampler
 
 __all__ = ["Sampler"]

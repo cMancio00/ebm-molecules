@@ -33,7 +33,7 @@ class DeepEnergyModel(pl.LightningModule):
         real_imgs.add_(small_noise).clamp_(min=-1.0, max=1.0)
 
         # Obtain samples
-        fake_imgs = self.sampler.sample_new_exmps(steps=60, step_size=10)
+        fake_imgs = self.sampler.sample_new_tensor(steps=60, step_size=10)
 
         # Predict energy score for all images
         inp_imgs = torch.cat([real_imgs, fake_imgs], dim=0)
