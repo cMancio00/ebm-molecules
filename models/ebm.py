@@ -1,7 +1,8 @@
 import torch
+import torchvision
 from models import Small_CNN
 from utils.Sampler import Sampler
-import pytorch_lightning as pl
+import lightning as pl
 import torch.optim as optim
 
 class DeepEnergyModel(pl.LightningModule):
@@ -11,7 +12,7 @@ class DeepEnergyModel(pl.LightningModule):
         self.save_hyperparameters()
 
         self.cnn = Small_CNN(**CNN_args)
-        self.sampler = Sampler(self.cnn, img_shape=img_shape, sample_size=batch_size)
+        self.sampler = Sampler(self.cnn, img_shape=tuple(img_shape), sample_size=batch_size)
         self.example_input_array = torch.zeros(1, *img_shape)
 
     def forward(self, x):
@@ -32,7 +33,7 @@ class DeepEnergyModel(pl.LightningModule):
         real_imgs.add_(small_noise).clamp_(min=-1.0, max=1.0)
 
         # Obtain samples
-        fake_imgs = self.sampler.sample_new_exmps(steps=60, step_size=10)
+        fake_imgs = self.sampler.sample_new_tensor(steps=60, step_size=10)
 
         # Predict energy score for all images
         inp_imgs = torch.cat([real_imgs, fake_imgs], dim=0)
@@ -42,7 +43,7 @@ class DeepEnergyModel(pl.LightningModule):
         reg_loss = self.hparams.alpha * (real_out ** 2 + fake_out ** 2).mean()
         cdiv_loss = fake_out.mean() - real_out.mean()
         loss = reg_loss + cdiv_loss
-
+        
         # Logging
         self.log('loss', loss)
         self.log('loss_regularization', reg_loss)
@@ -50,7 +51,7 @@ class DeepEnergyModel(pl.LightningModule):
         self.log('metrics_avg_real', real_out.mean())
         self.log('metrics_avg_fake', fake_out.mean())
         return loss
-
+    
     def validation_step(self, batch, batch_idx):
         # For validating, we calculate the contrastive divergence between purely random images and unseen examples
         # Note that the validation/test step of energy-based models depends on what we are interested in the model
@@ -64,3 +65,4 @@ class DeepEnergyModel(pl.LightningModule):
         self.log('val_contrastive_divergence', cdiv)
         self.log('val_fake_out', fake_out.mean())
         self.log('val_real_out', real_out.mean())
+        
