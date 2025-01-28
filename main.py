@@ -12,7 +12,7 @@ from lightning.pytorch.cli import LightningCLI
 from lightning.pytorch.loggers import TensorBoardLogger
 
 CHECKPOINT_PATH = "./saved_models/"
-
+torch.set_float32_matmul_precision('high')
 os.makedirs(CHECKPOINT_PATH, exist_ok=True)
 
 torch.backends.cudnn.deterministic = True
