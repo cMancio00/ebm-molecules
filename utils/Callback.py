@@ -69,8 +69,8 @@ class SamplerCallback(pl.Callback):
             pl_module (LightningModule): _description_
         """
         if trainer.current_epoch % self.every_n_epochs == 0:
-            exmp_imgs = torch.cat(random.choices(pl_module.sampler.buffer, k=self.num_samples), dim=0)
-            grid = torchvision.utils.make_grid(exmp_imgs, nrow=4, normalize=True)
+            tensors_from_mcmc_buffer = torch.cat(random.choices(pl_module.sampler.buffer, k=self.num_samples), dim=0)
+            grid = torchvision.utils.make_grid(tensors_from_mcmc_buffer, nrow=4, normalize=True)
             trainer.logger.experiment.add_image("Samples from MCMC buffer", grid, global_step=trainer.current_epoch)
 
 class OutlierCallback(pl.Callback):
