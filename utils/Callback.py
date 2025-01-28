@@ -43,7 +43,7 @@ class GenerateCallback(pl.Callback):
         start_imgs = torch.rand((1,) + tuple(pl_module.hparams["img_shape"])).to(pl_module.device)
         start_imgs = start_imgs * 2 - 1
         torch.set_grad_enabled(True)
-        imgs_per_step = Sampler.generate_samples(pl_module.cnn, start_imgs, steps=self.num_steps, step_size=10, return_img_per_step=True)
+        imgs_per_step = Sampler.generate_samples(pl_module.cnn, start_imgs, steps=self.num_steps, step_size=10, return_tensors_each_step=True)
         torch.set_grad_enabled(False)
         pl_module.train()
         return imgs_per_step
