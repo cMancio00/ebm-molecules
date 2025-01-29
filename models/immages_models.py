@@ -1,8 +1,9 @@
+import torch
 from torch import nn, sigmoid
 import lightning as pl
 
 class Swish(nn.Module):
-    
+
     def forward(self, x):
         return x * sigmoid(x)
     
@@ -29,7 +30,7 @@ class Small_CNN(pl.LightningModule):
                 Swish(),
                 nn.Linear(c_hid3, out_dim)
         )
-
+    @torch.compile(mode="reduce-overhead")
     def forward(self, x):
         x = self.cnn_layers(x).squeeze(dim=-1)
         return x
