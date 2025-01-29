@@ -3,12 +3,9 @@ import matplotlib.pyplot as plt
 import lightning as pl
 import os
 from models.ebm import DeepEnergyModel
-from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
-from utils.Callback import GenerateCallback, OutlierCallback, SamplerCallback
+from utils.Callback import GenerateCallback
 import torchvision
-from DataModules import MNISTDataModule
 from datetime import datetime
-from lightning.pytorch.loggers import TensorBoardLogger
 
 torch.set_float32_matmul_precision('high')
 
@@ -16,25 +13,13 @@ torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 
 def cli_main():
-        pl.seed_everything(42)
-        logger = TensorBoardLogger()
-        trainer = pl.Trainer(
-                max_epochs=60,
-                gradient_clip_val=0.1,
-                logger=logger,
-                callbacks=[ModelCheckpoint(save_weights_only=True, mode="min", monitor='val_contrastive_divergence'),
-                        GenerateCallback(every_n_epochs=5),
-                        SamplerCallback(every_n_epochs=5),
-                        OutlierCallback(),
-                        LearningRateMonitor("epoch")
-                        ])
-        dm = MNISTDataModule(batch_size=512)
-        model = DeepEnergyModel(img_shape=(1,28,28), lr=1e-4, beta1=0.0, batch_size=dm.batch_size)
-        trainer.fit(model=model,datamodule=dm)
+
 
         pl.seed_everything(42)
 
-        callback = GenerateCallback(vis_steps=8, num_steps=256)
+        model = DeepEnergyModel.load_from_checkpoint("lightning_logs/version_0/checkpoints/epoch=57-step=24882.ckpt")
+        model.eval()
+        callback = GenerateCallback(vis_steps=8, num_steps=1024, tensors_to_generate=4)
 
         imgs_per_step = callback.generate_imgs(model)
         imgs_per_step = imgs_per_step.cpu()
