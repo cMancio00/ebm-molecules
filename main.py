@@ -3,45 +3,24 @@ import matplotlib.pyplot as plt
 import lightning as pl
 import os
 from models.ebm import DeepEnergyModel
-from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
-from utils.Callback import GenerateCallback, OutlierCallback, SamplerCallback
+from utils.Callback import GenerateCallback
 import torchvision
-from DataModules import MNISTDataModule
 from datetime import datetime
-from lightning.pytorch.cli import LightningCLI
-from lightning.pytorch.loggers import TensorBoardLogger
 
-CHECKPOINT_PATH = "./saved_models/"
 torch.set_float32_matmul_precision('high')
-os.makedirs(CHECKPOINT_PATH, exist_ok=True)
 
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 
 def cli_main():
-        pl.seed_everything(42)
-        logger = TensorBoardLogger("tb_logs")
-        trainer = pl.Trainer(
-                max_epochs=60,
-                gradient_clip_val=0.1,
-                logger=logger,
-                callbacks=[ModelCheckpoint(dirpath=CHECKPOINT_PATH,save_weights_only=True, mode="min", monitor='val_contrastive_divergence'),
-                        GenerateCallback(every_n_epochs=1),
-                        SamplerCallback(every_n_epochs=1),
-                        OutlierCallback(),
-                        LearningRateMonitor("epoch")
-                        ])
-        dm = MNISTDataModule(batch_size=128)
-        model = DeepEnergyModel(img_shape=(1,28,28), lr=1e-4, beta1=0.0, batch_size=dm.batch_size)
-        trainer.fit(model=model,datamodule=dm)
-        
-        # cli = LightningCLI(DeepEnergyModel, MNISTDataModule)
+
 
         pl.seed_everything(42)
-        
-        # model = DeepEnergyModel.load_from_checkpoint("epoch=36-step=14726.ckpt")
-        callback = GenerateCallback(vis_steps=8, num_steps=256)
-        # imgs_per_step = callback.generate_imgs(cli.model)
+
+        model = DeepEnergyModel.load_from_checkpoint("lightning_logs/version_0/checkpoints/epoch=57-step=24882.ckpt")
+        model.eval()
+        callback = GenerateCallback(vis_steps=8, num_steps=1024, tensors_to_generate=4)
+
         imgs_per_step = callback.generate_imgs(model)
         imgs_per_step = imgs_per_step.cpu()
         
