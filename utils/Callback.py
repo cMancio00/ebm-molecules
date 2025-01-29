@@ -82,7 +82,7 @@ class OutlierCallback(pl.Callback):
     def on_train_epoch_end(self, trainer: Trainer, pl_module: LightningModule):
         with torch.no_grad():
             pl_module.eval()
-            rand_imgs = torch.rand((self.batch_size,) + pl_module.hparams["img_shape"]).to(pl_module.device)
+            rand_imgs = torch.rand((self.batch_size,) + tuple(pl_module.hparams["img_shape"])).to(pl_module.device)
             rand_imgs = rand_imgs * 2 - 1.0
             rand_out = pl_module.cnn(rand_imgs).mean()
             pl_module.train()
