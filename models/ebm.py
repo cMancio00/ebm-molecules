@@ -7,13 +7,13 @@ import torch.optim as optim
 
 class DeepEnergyModel(pl.LightningModule):
 
-    def __init__(self, img_shape, batch_size, alpha=0.1, lr=1e-4, beta1=0.0, **CNN_args):
+    def __init__(self, img_shape : tuple[int, int, int] = (1, 28, 28), batch_size : int = 32, alpha=0.1, lr=1e-4, beta1=0.0, mcmc_steps: int = 60, mcmc_learning_rate: float = 10.0,**CNN_args):
         super().__init__()
         self.save_hyperparameters()
-
         self.cnn = Small_CNN(**CNN_args)
         self.sampler = Sampler(self.cnn, img_shape=tuple(img_shape), sample_size=batch_size)
-        self.example_input_array = torch.zeros(1, *img_shape)
+        self.mcmc_steps = mcmc_steps
+        self.mcmc_learning_rate = mcmc_learning_rate
 
     def forward(self, x):
         z = self.cnn(x)
@@ -33,7 +33,7 @@ class DeepEnergyModel(pl.LightningModule):
         real_imgs.add_(small_noise).clamp_(min=-1.0, max=1.0)
 
         # Obtain samples
-        fake_imgs = self.sampler.sample_new_tensor(steps=60, step_size=10)
+        fake_imgs = self.sampler.sample_new_tensor(steps=self.mcmc_steps, step_size=self.mcmc_learning_rate)
 
         # Predict energy score for all images
         inp_imgs = torch.cat([real_imgs, fake_imgs], dim=0)
