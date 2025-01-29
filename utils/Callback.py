@@ -7,7 +7,7 @@ from utils.Sampler import Sampler
 
 class GenerateCallback(pl.Callback):
 
-    def __init__(self, num_steps: int=256, vis_steps: int=8, every_n_epochs: int=5):
+    def __init__(self, num_steps: int=256, vis_steps: int=8, every_n_epochs: int=5, tensors_to_generate : int = 1):
         """Uses MCMC to sample tensors from the model and logs them in the Tensorboard at the end
         of training epochs.
 
@@ -15,6 +15,7 @@ class GenerateCallback(pl.Callback):
             num_steps (int, optional): Number of MCMC steps to take during generation. Defaults to 256.
             vis_steps (int, optional): Steps within generation to visualize. Defaults to 8.
             every_n_epochs (int, optional): When we want to generate tensors. Defaults to 5.
+            tensors_to_generate (int, optional): Number of tesnsors to generate. Defaults to 1
         
         For example: The default number of steps in MCMC is 256, if we set `vis_steps` to 8, we will
         visualize 1 image each 32 steps (256/8).
@@ -23,6 +24,7 @@ class GenerateCallback(pl.Callback):
         self.vis_steps = vis_steps
         self.num_steps = num_steps
         self.every_n_epochs = every_n_epochs
+        self.tensors_to_generate = tensors_to_generate
 
     def on_train_epoch_end(self, trainer: Trainer, pl_module: LightningModule):
         """Called on train epoch end. Generates tensors from the model and save them in the Tensorboard
@@ -40,7 +42,7 @@ class GenerateCallback(pl.Callback):
 
     def generate_imgs(self, pl_module: LightningModule):
         pl_module.eval()
-        start_imgs = torch.rand((1,) + tuple(pl_module.hparams["img_shape"])).to(pl_module.device)
+        start_imgs = torch.rand((self.tensors_to_generate,) + tuple(pl_module.hparams["img_shape"])).to(pl_module.device)
         start_imgs = start_imgs * 2 - 1
         torch.set_grad_enabled(True)
         imgs_per_step = Sampler.generate_samples(pl_module.cnn, start_imgs, steps=self.num_steps, step_size=10, return_tensors_each_step=True)
