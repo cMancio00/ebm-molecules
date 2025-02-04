@@ -7,7 +7,7 @@ from utils.Callback import GenerateCallback
 import torchvision
 from datetime import datetime
 import matplotlib.pyplot as plt
-import numpy as np
+from DataModules import MNISTDataModule
 
 torch.set_float32_matmul_precision('high')
 
@@ -21,16 +21,28 @@ def cli_main():
 
         model = DeepEnergyModel.load_from_checkpoint("lightning_logs/version_0/checkpoints/epoch=57-step=24882.ckpt")
         model.eval()
-        callback = GenerateCallback(vis_steps=8, num_steps=1024, tensors_to_generate=4)
+        callback = GenerateCallback(vis_steps=8, num_steps=512, tensors_to_generate=6)
 
-        imgs_per_step = callback.generate_imgs(callback.num_steps)[callback.num_steps-1,0]
-        print(imgs_per_step.shape)
-        energy = model.cnn(imgs_per_step.unsqueeze(0)).item()
-        plt.figure(figsize=(8, 8))
-        plt.imshow(imgs_per_step.cpu().permute(1,2,0), cmap='gray')
-        plt.axis('off')
-        plt.suptitle(f"Energy: {energy:e}", fontweight='bold')
-        plt.savefig("test.png")
+
+        data = MNISTDataModule(batch_size=1024)
+        data.prepare_data()
+        data.setup("fit")
+
+        training_img, _ = next(iter(data.train_dataloader()))
+        training_energy = model.cnn(training_img.to(model.device)).mean()
+        print(f"Training Energy: {training_energy:e}")
+
+        num_images = callback.tensors_to_generate
+        fig, axes = plt.subplots(2, 3, figsize=(12, 8))
+        axes = axes.flatten()
+        for i in range(num_images):
+                imgs_per_step = callback.generate_imgs(model)[callback.num_steps - 1, i]
+                energy = model.cnn(imgs_per_step.unsqueeze(0)).item()
+                axes[i].imshow(imgs_per_step.cpu().permute(1, 2, 0), cmap='gray')
+                axes[i].axis('off')
+                axes[i].set_title(f"Energy: {energy:e}", fontweight='bold')
+        plt.suptitle(f"Training Energy: {training_energy:e}", fontweight='bold')
+        plt.savefig("Generated Images.png")
 
 
 
