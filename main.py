@@ -8,6 +8,7 @@ import torchvision
 from datetime import datetime
 import matplotlib.pyplot as plt
 from DataModules import MNISTDataModule
+from utils.Sampler import Sampler
 
 torch.set_float32_matmul_precision('high')
 
@@ -21,7 +22,7 @@ def cli_main():
 
         model = DeepEnergyModel.load_from_checkpoint("lightning_logs/version_0/checkpoints/epoch=57-step=24882.ckpt")
         model.eval()
-        callback = GenerateCallback(vis_steps=8, num_steps=512, tensors_to_generate=6)
+        # callback = GenerateCallback(vis_steps=8, num_steps=512, tensors_to_generate=6)
 
 
         data = MNISTDataModule(batch_size=1024)
@@ -29,20 +30,37 @@ def cli_main():
         data.setup("fit")
 
         training_img, _ = next(iter(data.train_dataloader()))
-        training_energy = model.cnn(training_img.to(model.device)).mean()
+        training_energy = -model.cnn(training_img.to(model.device)).mean()
         print(f"Training Energy: {training_energy:e}")
 
-        num_images = callback.tensors_to_generate
-        fig, axes = plt.subplots(2, 3, figsize=(12, 8))
-        axes = axes.flatten()
-        for i in range(num_images):
-                imgs_per_step = callback.generate_imgs(model)[callback.num_steps - 1, i]
-                energy = model.cnn(imgs_per_step.unsqueeze(0)).item()
-                axes[i].imshow(imgs_per_step.cpu().permute(1, 2, 0), cmap='gray')
-                axes[i].axis('off')
-                axes[i].set_title(f"Energy: {energy:e}", fontweight='bold')
-        plt.suptitle(f"Training Energy: {training_energy:e}", fontweight='bold')
-        plt.savefig("Generated Images.png")
+
+        for i in range(2):
+                print(f"\nGenerating Image {i}")
+                num_steps = 256
+                total_steps = num_steps
+                generated = (torch.rand((1,1,28,28)) * 2 - 1).to(model.device)
+                while True:
+                    generated = Sampler.generate_samples(model.cnn, generated, num_steps, model.mcmc_learning_rate)
+                    energy = -model.cnn(generated).item()
+                    if energy <= training_energy:
+                        print(f"\nTraining Energy: {training_energy:e}, Sample energy: {energy:e}")
+                        break
+                    total_steps += num_steps
+                    print(f"\rEnergy: {energy:e} is too high, adding {num_steps} iterations (total {total_steps})",end='', flush=True)
+                    if total_steps >= 10000:
+                            print(f"\nITERATION LIMIT REACHED, DISCARTING SAMPLE...")
+                            break
+        # num_images = callback.tensors_to_generate
+        # fig, axes = plt.subplots(2, 3, figsize=(12, 8))
+        # axes = axes.flatten()
+        # for i in range(num_images):
+        #         imgs_per_step = callback.generate_imgs(model)[callback.num_steps - 1, i]
+        #         energy = model.cnn(imgs_per_step.unsqueeze(0)).item()
+        #         axes[i].imshow(imgs_per_step.cpu().permute(1, 2, 0), cmap='gray')
+        #         axes[i].axis('off')
+        #         axes[i].set_title(f"Energy: {energy:e}", fontweight='bold')
+        # plt.suptitle(f"Training Energy: {training_energy:e}", fontweight='bold')
+        # plt.savefig("Generated Images.png")
 
 
 
