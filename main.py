@@ -18,7 +18,7 @@ torch.backends.cudnn.benchmark = False
 def cli_main():
 
 
-        pl.seed_everything(42)
+        pl.seed_everything(111)
 
         model = DeepEnergyModel.load_from_checkpoint("lightning_logs/version_0/checkpoints/epoch=57-step=24882.ckpt")
         model.eval()
@@ -33,8 +33,9 @@ def cli_main():
         training_energy = -model.cnn(training_img.to(model.device)).mean()
         print(f"Training Energy: {training_energy:e}")
 
-
-        for i in range(2):
+        fig, axes = plt.subplots(2, 3, figsize=(12, 8))
+        axes = axes.flatten()
+        for i in range(6):
                 print(f"\nGenerating Image {i}")
                 num_steps = 256
                 total_steps = num_steps
@@ -42,14 +43,20 @@ def cli_main():
                 while True:
                     generated = Sampler.generate_samples(model.cnn, generated, num_steps, model.mcmc_learning_rate)
                     energy = -model.cnn(generated).item()
-                    if energy <= training_energy:
-                        print(f"\nTraining Energy: {training_energy:e}, Sample energy: {energy:e}")
+                    if energy < training_energy:
+                        print(f"\nSample energy: {energy:e} less then Training Energy: {training_energy:e}, VALID")
+                        axes[i].imshow(generated[0].cpu().detach().permute(1,2,0), cmap='gray')
+                        axes[i].axis('off')
+                        axes[i].set_title(f"Energy: {energy:e}", fontweight='bold')
                         break
                     total_steps += num_steps
                     print(f"\rEnergy: {energy:e} is too high, adding {num_steps} iterations (total {total_steps})",end='', flush=True)
                     if total_steps >= 10000:
                             print(f"\nITERATION LIMIT REACHED, DISCARTING SAMPLE...")
                             break
+        plt.suptitle(f"Training Energy: {training_energy:e}", fontweight='bold')
+        plt.savefig("Generated loop Images.png")
+
         # num_images = callback.tensors_to_generate
         # fig, axes = plt.subplots(2, 3, figsize=(12, 8))
         # axes = axes.flatten()
