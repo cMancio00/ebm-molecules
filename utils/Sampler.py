@@ -21,7 +21,7 @@ class Sampler:
         self.max_len = max_len
         self.buffer = [(torch.rand((1,) + img_shape) * 2 - 1) for _ in range(self.sample_size)]
 
-    def sample_new_tensor(self, steps: int = 60, step_size: int = 10):
+    def sample_new_tensor(self, steps: int = 60, step_size: float = 10.0):
         """
         Function for getting a new batch of sampled tensors via MCMC.
         Inputs:

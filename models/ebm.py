@@ -32,7 +32,7 @@ class DeepEnergyModel(pl.LightningModule):
         small_noise = torch.randn_like(real_imgs) * 0.005
         real_imgs.add_(small_noise).clamp_(min=-1.0, max=1.0)
 
-        # Obtain samples
+        # Sample fake tensors (samples n = batch_size tensors)
         fake_imgs = self.sampler.sample_new_tensor(steps=self.mcmc_steps, step_size=self.mcmc_learning_rate)
 
         # Predict energy score for all images
