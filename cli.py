@@ -1,7 +1,7 @@
 import torch
 from models.ebm import DeepEnergyModel
 from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
-from utils.Callback import GenerateCallback, OutlierCallback, SamplerCallback
+from utils.Callback import GenerateCallback, SamplerCallback, SpectralNormalizationCallback
 from lightning.pytorch.cli import LightningCLI
 from lightning.pytorch.loggers import TensorBoardLogger
 
@@ -21,14 +21,14 @@ def cli_main():
         DeepEnergyModel,
         seed_everything_default=42,
         trainer_defaults={
-            'max_epochs': 60,
+            'max_epochs': 61,
             'gradient_clip_val': 0.1,
             'callbacks': [
-                ModelCheckpoint(save_weights_only=True, mode="min",
+                ModelCheckpoint(save_top_k=3,auto_insert_metric_name=True,
                                 monitor='val_contrastive_divergence'),
                 GenerateCallback(every_n_epochs=5, num_steps=1024, vis_steps=8),
                 SamplerCallback(every_n_epochs=5),
-                OutlierCallback(),
+                SpectralNormalizationCallback(),
                 LearningRateMonitor("epoch")
             ]
         }
