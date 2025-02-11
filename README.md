@@ -30,7 +30,7 @@ pip install --upgrade pip & pip install -r requirements.txt
 The model can be trained via `CLI` with the following command:
 
 ```bash
-python3 cli.py fit --trainer.max_epochs=60 --data=MNISTDataModule --data.batch_size=256 --model.mcmc_steps=128 --model.mcmc_learning_rate=5.0
+python3 cli.py fit --trainer.max_epochs=60 --data=DataModules.MNISTDataModule --data.batch_size=256 --model.mcmc_steps=128 --model.mcmc_learning_rate=5.0
 ```
 
 
