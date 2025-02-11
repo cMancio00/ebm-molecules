@@ -17,7 +17,8 @@ torch.backends.cudnn.benchmark = False
 def main():
 
         checkpoints = ["lightning_logs/version_0/checkpoints/epoch=57-step=24882.ckpt",
-                       "lightning_logs/version_1/checkpoints/epoch=59-step=12840.ckpt"]
+                       "lightning_logs/version_1/checkpoints/epoch=59-step=12840.ckpt",
+                       "lightning_logs/version_2/checkpoints/epoch=106-step=22898.ckpt"]
         seeds  = [1, 42, 43, 111]
         for seed in seeds:
             print(f"Using seed: {seed}")
@@ -66,7 +67,7 @@ def loop_generation(model: DeepEnergyModel, training_energy: float, model_versio
         save_path = f"generated_images/loop/{model_version}"
         if not os.path.exists(save_path):
             os.makedirs(save_path, exist_ok=True)
-        plt.savefig(f"{save_path}/seed_{seed}.png")
+        plt.savefig(f"{save_path}/loop_{model_version}_seed_{seed}.png")
 
 def steps_generation(model: DeepEnergyModel, model_version: str, seed: int):
     callback = GenerateCallback(vis_steps=8, num_steps=1024, tensors_to_generate=4)
@@ -95,7 +96,7 @@ def steps_generation(model: DeepEnergyModel, model_version: str, seed: int):
     save_path = f"generated_images/steps/{model_version}"
     if not os.path.exists(save_path):
         os.makedirs(save_path, exist_ok=True)
-    plt.savefig(f"{save_path}/seed_{seed}.png")
+    plt.savefig(f"{save_path}/steps_{model_version}_seed_{seed}.png")
 
 if __name__ == '__main__':
     main()

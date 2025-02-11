@@ -24,7 +24,7 @@ def cli_main():
             'max_epochs': 61,
             'gradient_clip_val': 0.1,
             'callbacks': [
-                ModelCheckpoint(save_top_k=3,auto_insert_metric_name=True,
+                ModelCheckpoint(save_top_k=1,auto_insert_metric_name=True,
                                 monitor='val_contrastive_divergence'),
                 GenerateCallback(every_n_epochs=5, num_steps=1024, vis_steps=8),
                 SamplerCallback(every_n_epochs=5),
