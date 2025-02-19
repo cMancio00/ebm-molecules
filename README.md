@@ -29,8 +29,14 @@ pip install --upgrade pip & pip install -r requirements.txt
 
 The model can be trained via `CLI` with the following command:
 
+**Base Model (ridge, no Spectral Normalization)**
 ```bash
-python3 cli.py fit --trainer.max_epochs=60 --data=DataModules.MNISTDataModule --model.batch_size=256 --model.mcmc_steps=128 --model.mcmc_learning_rate=5.0
+python3 cli.py fit --data=DataModules.MNISTDataModule --model.batch_size=128 --model.mcmc_steps=60 --model.mcmc_learning_rate=10.0
+```
+
+**Penalized Model (ridge, Spectral Normalization)**
+```bash
+python3 cli.py fit --data=DataModules.MNISTDataModule --model.batch_size=128 --model.mcmc_steps=60 --model.mcmc_learning_rate=10.0 --trainer.callbacks SpectralNormalizationCallback
 ```
 
 
