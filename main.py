@@ -17,12 +17,8 @@ torch.backends.cudnn.benchmark = False
 def main():
 
         checkpoints = [
-                       # "lightning_logs/version_0/checkpoints/epoch=57-step=24882.ckpt",
-                       # "lightning_logs/version_1/checkpoints/epoch=59-step=12840.ckpt",
-                       # "lightning_logs/version_2/checkpoints/epoch=106-step=22898.ckpt",
-                       # "lightning_logs/version_3/checkpoints/epoch=37-step=4066.ckpt",
-                       # "lightning_logs/version_5/checkpoints/epoch=59-step=12840.ckpt",
-                       "lightning_logs/version_7/checkpoints/epoch=59-step=12840.ckpt"
+                       "lightning_logs/version_0/checkpoints/epoch=60-step=26169.ckpt",
+                       "lightning_logs/version_1/checkpoints/epoch=51-step=22308.ckpt"
                        ]
         seeds  = [1, 42, 43, 111]
         for seed in seeds:
