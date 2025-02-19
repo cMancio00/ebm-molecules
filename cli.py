@@ -28,7 +28,7 @@ def cli_main():
                                 monitor='val_contrastive_divergence'),
                 GenerateCallback(every_n_epochs=5, num_steps=1024, vis_steps=8),
                 SamplerCallback(every_n_epochs=5),
-                SpectralNormalizationCallback(),
+                # SpectralNormalizationCallback(),
                 LearningRateMonitor("epoch")
             ]
         }

@@ -50,8 +50,8 @@ class DeepEnergyModel(pl.LightningModule):
         self.log('loss', loss)
         self.log('loss_regularization', reg_loss)
         self.log('loss_contrastive_divergence', cdiv_loss)
-        self.log('metrics_avg_real', real_out.mean())
-        self.log('metrics_avg_fake', fake_out.mean())
+        self.log('Positive_phase_energy', real_out.mean())
+        self.log('Negative_phase_energy', fake_out.mean())
         return loss
     
     def validation_step(self, batch, batch_idx):
@@ -65,8 +65,6 @@ class DeepEnergyModel(pl.LightningModule):
 
         cdiv = fake_out.mean() - real_out.mean()
         self.log('val_contrastive_divergence', cdiv)
-        self.log('val_fake_out', fake_out.mean())
-        self.log('val_real_out', real_out.mean())
 
     def on_load_checkpoint(self, checkpoint):
         state_dict = checkpoint["state_dict"]
