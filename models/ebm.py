@@ -1,5 +1,5 @@
 import torch
-import torchvision
+
 from models import Small_CNN
 from utils.Sampler import Sampler
 import lightning as pl
@@ -11,7 +11,8 @@ class DeepEnergyModel(pl.LightningModule):
         super().__init__()
         self.save_hyperparameters()
         self.cnn = Small_CNN(**CNN_args)
-        self.sampler = Sampler(self.cnn, img_shape=tuple(img_shape), sample_size=batch_size)
+        self.batch_size = batch_size
+        self.sampler = Sampler(self.cnn, img_shape=tuple(img_shape), sample_size=self.batch_size)
         self.mcmc_steps = mcmc_steps
         self.mcmc_learning_rate = mcmc_learning_rate
 
@@ -42,14 +43,14 @@ class DeepEnergyModel(pl.LightningModule):
         # Calculate losses
         reg_loss = self.hparams.alpha * (real_out ** 2 + fake_out ** 2).mean()
         cdiv_loss = fake_out.mean() - real_out.mean()
-        loss = reg_loss + cdiv_loss
+        loss = cdiv_loss + reg_loss
         
         # Logging
         self.log('loss', loss)
         self.log('loss_regularization', reg_loss)
         self.log('loss_contrastive_divergence', cdiv_loss)
-        self.log('metrics_avg_real', real_out.mean())
-        self.log('metrics_avg_fake', fake_out.mean())
+        self.log('Positive_phase_energy', real_out.mean())
+        self.log('Negative_phase_energy', fake_out.mean())
         return loss
     
     def validation_step(self, batch, batch_idx):
@@ -63,6 +64,18 @@ class DeepEnergyModel(pl.LightningModule):
 
         cdiv = fake_out.mean() - real_out.mean()
         self.log('val_contrastive_divergence', cdiv)
-        self.log('val_fake_out', fake_out.mean())
-        self.log('val_real_out', real_out.mean())
+
+    def on_load_checkpoint(self, checkpoint):
+        state_dict = checkpoint["state_dict"]
+        new_state_dict = {}
+        for key, value in state_dict.items():
+            if "parametrizations.weight.original" in key:
+                new_key = key.replace("parametrizations.weight.original", "weight")
+                new_state_dict[new_key] = value
+            elif "parametrizations.weight.0._u" in key or "parametrizations.weight.0._v" in key:
+                continue
+            else:
+                new_state_dict[key] = value
+        checkpoint["state_dict"] = new_state_dict
+
         

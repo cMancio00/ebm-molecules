@@ -8,7 +8,7 @@ from torchvision.datasets import FashionMNIST
 
 class FashionMNISTDataModule(pl.LightningDataModule):
 
-    def __init__(self, data_dir: str = "../datasets", batch_size: int = 32, num_workers: int = 4):
+    def __init__(self, data_dir: str = "./datasets", batch_size: int = 32, num_workers: int = 4):
         super().__init__()
         self.data_dir = data_dir
         self.batch_size = batch_size

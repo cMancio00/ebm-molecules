@@ -3,6 +3,8 @@ import torch
 import lightning as pl
 from lightning import Trainer, LightningModule
 import torchvision
+from torch.nn.utils.parametrizations import spectral_norm
+from torch.nn.utils.parametrize import is_parametrized, remove_parametrizations
 from utils.Sampler import Sampler
 
 class GenerateCallback(pl.Callback):
@@ -75,18 +77,15 @@ class SamplerCallback(pl.Callback):
             grid = torchvision.utils.make_grid(tensors_from_mcmc_buffer, nrow=4, normalize=True)
             trainer.logger.experiment.add_image("Samples from MCMC buffer", grid, global_step=trainer.current_epoch)
 
-class OutlierCallback(pl.Callback):
 
-    def __init__(self, batch_size=1024):
+class SpectralNormalizationCallback(pl.Callback):
+
+    def __init__(self):
         super().__init__()
-        self.batch_size = batch_size
 
-    def on_train_epoch_end(self, trainer: Trainer, pl_module: LightningModule):
-        with torch.no_grad():
-            pl_module.eval()
-            rand_imgs = torch.rand((self.batch_size,) + tuple(pl_module.hparams["img_shape"])).to(pl_module.device)
-            rand_imgs = rand_imgs * 2 - 1.0
-            rand_out = pl_module.cnn(rand_imgs).mean()
-            pl_module.train()
-
-        trainer.logger.experiment.add_scalar("rand_out", rand_out, global_step=trainer.current_epoch)
+    def on_train_start(self, trainer: Trainer, pl_module: LightningModule):
+        print("Spectral Normalization Added")
+        for module in pl_module.cnn.modules():
+            if hasattr(module, "weight") and ("weight" in dict(module.named_parameters())):
+                if not is_parametrized(module, "weight"):
+                    spectral_norm(module, name="weight", n_power_iterations=1)
