@@ -39,6 +39,18 @@ python3 cli.py fit --data=DataModules.MNISTDataModule --model.batch_size=128 --m
 python3 cli.py fit --data=DataModules.MNISTDataModule --model.batch_size=128 --model.mcmc_steps=60 --model.mcmc_learning_rate=10.0 --trainer.callbacks SpectralNormalizationCallback
 ```
 
+**Activate the TensorBoard with Ipython:**
+```bash
+ipython
+```
+```python
+%load_ext tensorboard
+```
+```python
+%tensorboard --logdir ./lightning_logs
+```
+The TensorBoard will listen to port `6006`, so you can visit the [webApp](http://localhost:6006/).
+
 
 # Papers
 
