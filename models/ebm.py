@@ -1,5 +1,5 @@
 import torch
-
+from torch.nn import CrossEntropyLoss
 from models import Small_CNN
 from utils.Sampler import Sampler
 import lightning as pl
@@ -29,40 +29,50 @@ class DeepEnergyModel(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         # We add minimal noise to the original images to prevent the model from focusing on purely "clean" inputs
-        real_imgs, _ = batch
+        real_imgs, labels = batch
+        # We could move this to preprocessing step
         small_noise = torch.randn_like(real_imgs) * 0.005
         real_imgs.add_(small_noise).clamp_(min=-1.0, max=1.0)
 
+        #Calculate CrossEntropy
+        logits = self.cnn(real_imgs)
+        # print(logits.shape)
+        cross_entropy = 0 #CrossEntropyLoss()(logits,labels)
+
         # Sample fake tensors (samples n = batch_size tensors)
-        fake_imgs = self.sampler.sample_new_tensor(steps=self.mcmc_steps, step_size=self.mcmc_learning_rate)
+        fake_imgs = self.sampler.sample_new_tensor(steps=self.mcmc_steps, step_size=self.mcmc_learning_rate, labels=labels)
 
         # Predict energy score for all images
         inp_imgs = torch.cat([real_imgs, fake_imgs], dim=0)
         real_out, fake_out = self.cnn(inp_imgs).chunk(2, dim=0)
+        real_out = real_out[torch.arange(labels.size(0)),labels]
+        fake_out = fake_out[torch.arange(labels.size(0)),labels]
 
         # Calculate losses
         reg_loss = self.hparams.alpha * (real_out ** 2 + fake_out ** 2).mean()
-        cdiv_loss = fake_out.mean() - real_out.mean()
-        loss = cdiv_loss + reg_loss
+        generative_loss = (fake_out - real_out).mean()
+        loss = cross_entropy + generative_loss + reg_loss
         
         # Logging
         self.log('loss', loss)
         self.log('loss_regularization', reg_loss)
-        self.log('loss_contrastive_divergence', cdiv_loss)
+        self.log('loss_contrastive_divergence', generative_loss)
         self.log('Positive_phase_energy', real_out.mean())
         self.log('Negative_phase_energy', fake_out.mean())
+        self.log("Cross Entropy", cross_entropy)
         return loss
     
     def validation_step(self, batch, batch_idx):
-        # For validating, we calculate the contrastive divergence between purely random images and unseen examples
-        # Note that the validation/test step of energy-based models depends on what we are interested in the model
-        real_imgs, _ = batch
+        real_imgs, labels = batch
         fake_imgs = torch.rand_like(real_imgs) * 2 - 1
 
         inp_imgs = torch.cat([real_imgs, fake_imgs], dim=0)
         real_out, fake_out = self.cnn(inp_imgs).chunk(2, dim=0)
+        real_out = real_out[torch.arange(labels.size(0)),labels]
+        fake_out = fake_out[torch.arange(labels.size(0)),labels]
 
-        cdiv = fake_out.mean() - real_out.mean()
+        # cdiv = fake_out.mean() - real_out.mean()
+        cdiv = (fake_out - real_out).mean()
         self.log('val_contrastive_divergence', cdiv)
 
     def on_load_checkpoint(self, checkpoint):
@@ -77,5 +87,6 @@ class DeepEnergyModel(pl.LightningModule):
             else:
                 new_state_dict[key] = value
         checkpoint["state_dict"] = new_state_dict
+
 
         

@@ -10,7 +10,7 @@ class Swish(nn.Module):
 
 class Small_CNN(pl.LightningModule):
     
-    def __init__(self, hidden_features=32, out_dim=1, **kwargs):
+    def __init__(self, hidden_features=32, out_dim=10, **kwargs):
         super().__init__()
         c_hid1 = hidden_features//2
         c_hid2 = hidden_features
