@@ -10,7 +10,7 @@ from utils.Sampler import Sampler
 
 class GenerateCallback(pl.Callback):
 
-    def __init__(self, num_steps: int=256, vis_steps: int=8, every_n_epochs: int=5, tensors_to_generate : int = 10):
+    def __init__(self, num_steps: int=256, vis_steps: int=10, every_n_epochs: int=5, tensors_to_generate : int = 10):
         """Uses MCMC to sample tensors from the model and logs them in the Tensorboard at the end
         of training epochs.
 

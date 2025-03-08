@@ -39,6 +39,37 @@ python3 cli.py fit --data=DataModules.MNISTDataModule --model.batch_size=128 --m
 python3 cli.py fit --data=DataModules.MNISTDataModule --model.batch_size=128 --model.mcmc_steps=60 --model.mcmc_learning_rate=10.0 --trainer.callbacks SpectralNormalizationCallback
 ```
 
+**version_2**
+CrossEntropy + Generation_Error, epochs=61 mcmc_steps=60 mcmc_learning_rate=10.0
+
+**version_3**
+Generation_Error, epochs=61, mcmc_steps=60 mcmc_learning_rate=10.0
+
+**version_4**
+CrossEntropy + Generation_Error, less mcmc_steps, smaller learning rate
+```bash
+python3 cli.py fit --data=DataModules.MNISTDataModule --model.batch_size=128 --model.mcmc_steps=20 --model.mcmc_learning_rate=10
+.0
+```
+
+**version_5**
+Generation_Error, less mcmc_steps
+```bash
+python3 cli.py fit --data=DataModules.MNISTDataModule --model.batch_size=128 --model.mcmc_steps=20 --model.mcmc_learning_rate=10
+```
+
+**version_6**
+CrossEntropy + Generation_Error + Regularization, less mcmc_steps
+```bash
+python3 cli.py fit --data=DataModules.MNISTDataModule --model.batch_size=128 --model.mcmc_steps=20 --model.mcmc_learning_rate=10
+```
+
+**version_7**
+Generation_Error + Regularization, less mcmc_steps
+```bash
+python3 cli.py fit --data=DataModules.MNISTDataModule --model.batch_size=128 --model.mcmc_steps=20 --model.mcmc_learning_rate=10
+```
+
 **Activate the TensorBoard with Ipython:**
 ```bash
 ipython

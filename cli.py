@@ -26,7 +26,7 @@ def cli_main():
             'callbacks': [
                 ModelCheckpoint(save_top_k=1,auto_insert_metric_name=True,
                                 monitor='val_contrastive_divergence'),
-                GenerateCallback(every_n_epochs=5, num_steps=1024, vis_steps=8),
+                GenerateCallback(every_n_epochs=5, num_steps=1024, vis_steps=10),
                 SamplerCallback(every_n_epochs=5),
                 # SpectralNormalizationCallback(),
                 LearningRateMonitor("epoch")
