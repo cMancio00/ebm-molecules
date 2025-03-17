@@ -35,8 +35,8 @@ class DeepEnergyModel(pl.LightningModule):
         real_imgs.add_(small_noise).clamp_(min=-1.0, max=1.0)
 
         #Calculate CrossEntropy
-        # logits = self.cnn(real_imgs)
-        cross_entropy = 0 #CrossEntropyLoss()(logits,labels)
+        logits = self.cnn(real_imgs)
+        cross_entropy = CrossEntropyLoss()(logits,labels)
 
         # Sample fake tensors (samples n = batch_size tensors)
         fake_imgs = self.sampler.sample_new_tensor(steps=self.mcmc_steps, step_size=self.mcmc_learning_rate, labels=labels)
@@ -50,8 +50,8 @@ class DeepEnergyModel(pl.LightningModule):
         # Calculate losses
         reg_loss = 0 # self.hparams.alpha * (real_out ** 2 + fake_out ** 2).mean()
         generative_loss = (fake_out - real_out).mean()
-        loss = cross_entropy + generative_loss + reg_loss
-        
+        # loss = cross_entropy + generative_loss + reg_loss
+        loss = generative_loss
         # Logging
         self.log('loss', loss)
         self.log('loss_regularization', reg_loss)
