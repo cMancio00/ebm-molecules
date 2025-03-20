@@ -22,7 +22,7 @@ source .venv/bin/activate
 Next, install the required packages with:
 
 ```bash
-pip install --upgrade pip & pip install -r requirements.txt
+pip install --upgrade pip & pip install .
 ```
 
 # Training example
