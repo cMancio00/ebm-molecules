@@ -21,7 +21,7 @@ class Sampler:
         self.max_len = max_len
         self.buffer = [(torch.rand((1,) + img_shape) * 2 - 1) for _ in range(self.sample_size)]
 
-    def sample_new_tensor(self, steps: int = 60, step_size: float = 10.0):
+    def sample_new_tensor(self, labels, steps: int = 60, step_size: float = 10.0):
         """
         Function for getting a new batch of sampled tensors via MCMC.
         Inputs:
@@ -37,7 +37,7 @@ class Sampler:
         mcmc_starting_tensors = torch.cat([new_rand_tensors, old_tensors], dim=0).detach().to(self.model.device)
 
         # Perform MCMC sampling
-        mcmc_samples = Sampler.generate_samples(self.model, mcmc_starting_tensors, steps=steps, step_size=step_size)
+        mcmc_samples = Sampler.generate_samples(self.model, mcmc_starting_tensors, labels, steps=steps, step_size=step_size)
 
         # Add new images to the buffer and remove old ones if needed
         self.buffer = list(mcmc_samples.to(torch.device("cpu")).chunk(self.sample_size, dim=0)) + self.buffer
@@ -45,7 +45,7 @@ class Sampler:
         return mcmc_samples
 
     @staticmethod
-    def generate_samples(model: LightningModule, mcmc_starting_tensors: torch.Tensor, steps: int = 60, step_size: float = 10.0,
+    def generate_samples(model: LightningModule, mcmc_starting_tensors: torch.Tensor, lables, steps: int = 60, step_size: float = 10.0,
                          return_tensors_each_step: bool = False) -> torch.Tensor:
         """
         Function for generating new tensors via MCMC, given a model for :math:`E_{\\theta}`
@@ -82,15 +82,13 @@ class Sampler:
         for _ in range(steps):
             # Part 1: Add noise to the input.
             noise.normal_(0, 0.005)
-            # inplace methods, can't compile the model with them
             mcmc_starting_tensors.data.add_(noise.data)
             mcmc_starting_tensors.data.clamp_(min=-1.0, max=1.0)
 
             # Part 2: Get the energy and calculate the gradient of the input
-            energy: torch.Tensor = -model(mcmc_starting_tensors)
+            energy: torch.Tensor = -(model(mcmc_starting_tensors)[torch.arange(lables.size(0)),lables])
+            # energy.logsumexp(dim=0)
             energy.sum().backward()
-            # inplace method
-            # Do we need this?
             mcmc_starting_tensors.grad.data.clamp_(-0.03, 0.03)
 
             # Apply gradients to our current samples
@@ -114,3 +112,5 @@ class Sampler:
             return torch.stack(tensors_each_step, dim=0)
         else:
             return mcmc_starting_tensors
+
+

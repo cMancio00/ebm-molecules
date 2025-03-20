@@ -1,7 +1,8 @@
 from typing import override
-
 import lightning as pl
-from torch.utils.data import random_split, DataLoader
+import torch
+from tensorboard.data.proto.data_provider_pb2 import TensorData
+from torch.utils.data import random_split, DataLoader, Dataset, TensorDataset
 from torchvision import transforms
 from torchvision.datasets import MNIST
 
@@ -30,10 +31,13 @@ class MNISTDataModule(pl.LightningDataModule):
     def setup(self, stage):
         if stage == "fit":
             mnist_full = MNIST(self.data_dir, train=True, download=True, transform=self.transform)
+            # to_take = mnist_full.targets == 0
+            # mnist_full.data = mnist_full.data[to_take]
+            # mnist_full.targets = mnist_full.targets[to_take]
             self.mnist_train, self.mnist_val = random_split(
                 # TODO:
                 # - Parametrize lengths from CLI
-                mnist_full, [55000, 5000]
+                mnist_full, [11/12, 1/12]
             )
         if stage == "test":
             self.mnist_test = MNIST(self.data_dir, train=False, download=True, transform=self.transform)

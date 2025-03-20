@@ -17,10 +17,9 @@ torch.backends.cudnn.benchmark = False
 def main():
 
         checkpoints = [
-                       "lightning_logs/version_0/checkpoints/epoch=60-step=26169.ckpt",
-                       "lightning_logs/version_1/checkpoints/epoch=51-step=22308.ckpt"
-                       ]
-        seeds  = [1, 42, 43, 111]
+            "lightning_logs/version_8/checkpoints/epoch=57-step=6206.ckpt"
+        ]
+        seeds  = [42, 111]
         for seed in seeds:
             print(f"Using seed: {seed}")
             pl.seed_everything(seed)
@@ -33,7 +32,7 @@ def main():
                     model = DeepEnergyModel.load_from_checkpoint(checkpoint)
                     model.eval()
                     training_energy = calculate_training_energy(data, model)
-                    loop_generation(model, training_energy, model_version, seed)
+                    # loop_generation(model, training_energy, model_version, seed)
                     steps_generation(model, model_version, seed)
 
 
@@ -71,7 +70,7 @@ def loop_generation(model: DeepEnergyModel, training_energy: float, model_versio
         plt.savefig(f"{save_path}/loop_{model_version}_seed_{seed}.png")
 
 def steps_generation(model: DeepEnergyModel, model_version: str, seed: int):
-    callback = GenerateCallback(vis_steps=8, num_steps=1024, tensors_to_generate=4)
+    callback = GenerateCallback(vis_steps=8, num_steps=1024, tensors_to_generate=10)
 
     imgs_per_step = callback.generate_imgs(model)
     imgs_per_step = imgs_per_step.cpu()
