@@ -1,0 +1,40 @@
+[build-system]
+requires = [
+    "setuptools"
+]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["models", "DataModules", "utils"]
+exclude = ["lightning_logs", "generated_images", "datasets"]
+
+[project]
+name = "ebm-molecules"
+dynamic = ["version"]
+authors = [{ name = "Christian Mancini", email= "christian.mancini1@edu.unifi.it"}]
+dependencies = [
+    "numpy==1.26.4",
+    "torch",
+    "torchvision",
+    "lightning~=2.5.0.post0",
+    "jsonargparse[signatures]>=4.27.7",
+    "matplotlib==3.10.0",
+    "rich==13.9.4",
+    "seaborn==0.13.2",
+    #Maybe optional
+    "jupyterlab==4.3.5",
+    "tensorboard==2.18.0"
+
+
+
+]
+requires-python = ">= 3.12"
+description = "A deep learning model based on condition EBM for molecules generation."
+readme = "README.md"
+
+
+
+[project.urls]
+Repository = "https://github.com/cMancio00/ebm-molecules.git"
+Issues = "https://github.com/cMancio00/ebm-molecules/issues"
