@@ -7,11 +7,11 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["models", "DataModules", "utils"]
-exclude = ["lightning_logs", "generated_images", "datasets"]
+exclude = ["lightning_logs", "generated_images", "datasets", "notebooks"]
 
 [project]
 name = "ebm-molecules"
-dynamic = ["version"]
+version = "0.1.0"
 authors = [{ name = "Christian Mancini", email= "christian.mancini1@edu.unifi.it"}]
 dependencies = [
     "numpy==1.26.4",
@@ -24,10 +24,12 @@ dependencies = [
     "seaborn==0.13.2",
     #Maybe optional
     "jupyterlab==4.3.5",
-    "tensorboard==2.18.0"
+    "python-lsp-server[all]",
+    "tensorboard==2.18.0",
 
-
-
+    "torch_geometric",
+    #This is how to install from a link, must provide the exact location of the wheel
+    "pyg_lib @ https://data.pyg.org/whl/torch-2.5.0%2Bcu124/pyg_lib-0.4.0%2Bpt25cu124-cp312-cp312-linux_x86_64.whl"
 ]
 requires-python = ">= 3.12"
 description = "A deep learning model based on condition EBM for molecules generation."
