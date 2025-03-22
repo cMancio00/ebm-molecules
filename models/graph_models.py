@@ -6,6 +6,7 @@ import torch.nn.functional as F
 import torch_geometric.transforms as T
 from torch_geometric.utils import normalized_cut
 import lightning as pl
+import torch.optim as optim
 
 
 def normalized_cut_2d(edge_index, pos):
@@ -40,3 +41,12 @@ class MoNet(pl.LightningModule):
         x = F.elu(self.fc1(x))
         x = F.dropout(x, training=self.training)
         return F.log_softmax(self.fc2(x), dim=1)
+
+    def configure_optimizers(self):
+        optimizer = optim.Adam(self.parameters())
+        scheduler = optim.lr_scheduler.StepLR(optimizer, 1, gamma=0.97)
+        return [optimizer], [scheduler]
+
+    def training_step(self, batch, batch_idx):
+        loss = F.nll_loss(self(batch), batch.y)
+        return loss
