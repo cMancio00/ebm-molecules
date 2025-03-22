@@ -22,20 +22,25 @@ dependencies = [
     "matplotlib==3.10.0",
     "rich==13.9.4",
     "seaborn==0.13.2",
-    #Maybe optional
-    "jupyterlab==4.3.5",
-    "python-lsp-server[all]",
-    "tensorboard==2.18.0",
-
-    "torch_geometric",
+    "opencv-python",
+    "torch_geometric == 2.6.0",
     #This is how to install from a link, must provide the exact location of the wheel
-    "pyg_lib @ https://data.pyg.org/whl/torch-2.5.0%2Bcu124/pyg_lib-0.4.0%2Bpt25cu124-cp312-cp312-linux_x86_64.whl"
+    "pyg_lib @ https://data.pyg.org/whl/torch-2.5.0%2Bcu124/pyg_lib-0.4.0%2Bpt25cu124-cp312-cp312-linux_x86_64.whl",
+    "torch_scatter @ https://data.pyg.org/whl/torch-2.5.0%2Bcu124/torch_scatter-2.1.2+pt25cu124-cp312-cp312-linux_x86_64.whl",
+    "torch_sparse @ https://data.pyg.org/whl/torch-2.5.0%2Bcu124/torch_sparse-0.6.18+pt25cu124-cp312-cp312-linux_x86_64.whl",
+    "torch_cluster @ https://data.pyg.org/whl/torch-2.5.0%2Bcu124/torch_cluster-1.6.3%2Bpt25cu124-cp312-cp312-linux_x86_64.whl"
+
 ]
-requires-python = ">= 3.12"
+requires-python = ">=3.12,<3.13"
 description = "A deep learning model based on condition EBM for molecules generation."
 readme = "README.md"
 
-
+[project.optional-dependencies]
+dev =[
+    "jupyterlab",
+    "python-lsp-server[all]",
+    "tensorboard==2.18.0"
+]
 
 [project.urls]
 Repository = "https://github.com/cMancio00/ebm-molecules.git"

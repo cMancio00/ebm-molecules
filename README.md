@@ -24,6 +24,19 @@ Next, install the required packages with:
 ```bash
 pip install --upgrade pip & pip install .
 ```
+For installing also development dependencies like notebook use:
+
+```bash
+pip install ".[dev]"
+```
+
+To run the jupyter server use:
+```bash
+jupyter lab --no-browser
+```
+
+And go to:
+http
 
 # Training example
 
