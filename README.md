@@ -32,7 +32,7 @@ pip install ".[dev]"
 
 To run the jupyter server use:
 ```bash
-jupyter lab --no-browser
+jupyter lab --no-browser --port=8888 --autoreload --LabApp.token=''
 ```
 
 And go to:
