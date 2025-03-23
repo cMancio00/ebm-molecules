@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import override
 import lightning as pl
 from torch.utils.data import random_split
@@ -8,7 +9,7 @@ import torch_geometric.transforms as T
 
 class MNISTSuperpixelDataModule(pl.LightningDataModule):
 
-    def __init__(self, data_dir: str = "./datasets/MNISTSuperpixel", batch_size: int = 32, num_workers: int = 4):
+    def __init__(self, data_dir: str = "datasets/MNISTSuperpixel", batch_size: int = 32, num_workers: int = 4):
         super().__init__()
         self.data_dir = data_dir
         self.batch_size = batch_size

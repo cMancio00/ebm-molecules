@@ -1,4 +1,5 @@
 from torch import nn, norm
+from torch.nn import CrossEntropyLoss
 from torch_geometric.nn import max_pool, global_mean_pool
 from torch_geometric.nn.conv import GMMConv
 from torch_geometric.nn.pool import graclus
@@ -48,5 +49,7 @@ class MoNet(pl.LightningModule):
         return [optimizer], [scheduler]
 
     def training_step(self, batch, batch_idx):
-        loss = F.nll_loss(self(batch), batch.y)
+        loss = CrossEntropyLoss()(self(batch), batch.y)
+        # loss = F.nll_loss(self(batch), batch.y)
+        self.log('CrossEntropy loss', loss)
         return loss
