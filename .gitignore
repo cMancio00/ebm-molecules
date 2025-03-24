@@ -4,4 +4,6 @@ datasets
 .idea
 build
 *.egg-info
-
+**/.ipynb.checkpoints/
+/.virtual_documents/notebooks
+/notebooks/.ipynb_checkpoints
