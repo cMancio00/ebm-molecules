@@ -4,7 +4,7 @@ from lightning import Trainer
 from lightning.pytorch.callbacks import ModelCheckpoint, Callback
 from torch import set_float32_matmul_precision
 from lightning.pytorch.loggers import TensorBoardLogger
-from utils.graph_plotting import superpixels_to_2d_image
+from utils.graphs import superpixels_to_2d_image
 import matplotlib.pyplot as plt
 set_float32_matmul_precision('high')
 
