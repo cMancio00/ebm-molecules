@@ -16,13 +16,13 @@ def normalized_cut_2d(edge_index, pos):
     return normalized_cut(edge_index, edge_attr, num_nodes=pos.size(0))
 
 class MoNet(pl.LightningModule):
-    def __init__(self, kernel_size=3):
+    def __init__(self, kernel_size: int =3, out_dim: int = 10):
         super(MoNet, self).__init__()
         self.conv1 = GMMConv(1, 32, dim=2, kernel_size=kernel_size)
         self.conv2 = GMMConv(32, 64, dim=2, kernel_size=kernel_size)
         self.conv3 = GMMConv(64, 64, dim=2, kernel_size=kernel_size)
         self.fc1 = nn.Linear(64, 128)
-        self.fc2 = nn.Linear(128, 10)
+        self.fc2 = nn.Linear(128, out_dim)
 
     def forward(self, data):
         data.x = F.elu(self.conv1(data.x, data.edge_index, data.edge_attr))
