@@ -1,9 +1,15 @@
+import itertools
+
 import torch
-from torch_geometric.data import Data
+from torch_geometric.data import Data, Batch
 import numpy as np
 import cv2
 from torch_geometric.utils import dense_to_sparse
 
+def concat_batches(batches: list[Batch]) -> Batch:
+    return Batch.from_data_list(
+        list(itertools.chain(*[batch.to_data_list() for batch in batches]))
+    )
 
 def generate_random_graph(n_nodes: int = 75, n_edge_feature: int = 2) -> Data:
     x: torch.Tensor = torch.rand((n_nodes, 1))

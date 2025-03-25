@@ -1,12 +1,17 @@
+import itertools
 import random
+from typing import List
+
 import torch
 import numpy as np
 from lightning import LightningModule
+from torch_geometric.data import Data, Batch
+from utils.graphs import generate_random_graph, concat_batches
 
 
 class Sampler:
 
-    def __init__(self, model: LightningModule, img_shape: tuple[int, int, int], sample_size: int, max_len: int = 8192):
+    def __init__(self, model: LightningModule, sample_size: int, max_len: int = 8192):
         """
         Inputs:
             model - Neural network to use for modeling E_theta
@@ -16,12 +21,13 @@ class Sampler:
         """
         super().__init__()
         self.model = model
-        self.img_shape = tuple(img_shape)
+        # self.img_shape = tuple(img_shape)
         self.sample_size = sample_size
         self.max_len = max_len
-        self.buffer = [(torch.rand((1,) + img_shape) * 2 - 1) for _ in range(self.sample_size)]
+        # self.buffer = [(torch.rand((1,) + img_shape) * 2 - 1) for _ in range(self.sample_size)]
+        self.buffer: List[Data] = [generate_random_graph() for _ in range(self.sample_size)]
 
-    def sample_new_tensor(self, labels, steps: int = 60, step_size: float = 10.0):
+    def sample_new_tensor(self, labels, steps: int = 60, step_size: float = 10.0) -> Batch:
         """
         Function for getting a new batch of sampled tensors via MCMC.
         Inputs:
@@ -29,18 +35,29 @@ class Sampler:
             step_size - Learning rate nu in the algorithm above
         """
         # Choose 95% of the batch from the buffer, 5% generate from scratch
-        num_new_samples = np.random.binomial(self.sample_size, 0.05)
-        new_rand_tensors = torch.rand((num_new_samples,) + self.img_shape) * 2 - 1
+        num_new_samples: int = np.random.binomial(self.sample_size, 0.05)
+        print(f"Generating: {num_new_samples} new samples")
+        if not num_new_samples == 0:
+            new_rand_tensors: Batch = Batch.from_data_list([generate_random_graph() for _ in range(num_new_samples)])
         # Randomlly select the old tensor from the buffer
-        old_tensors = torch.cat(random.choices(self.buffer, k=self.sample_size - num_new_samples), dim=0)
+        # old_tensors = torch.cat(random.choices(self.buffer, k=self.sample_size - num_new_samples), dim=0)
+        old_tensors: Batch = Batch.from_data_list(random.choices(self.buffer, k=self.sample_size - num_new_samples))
         # Concatenate the old tensors and the new ones in the batch dimension
-        mcmc_starting_tensors = torch.cat([new_rand_tensors, old_tensors], dim=0).detach().to(self.model.device)
-
+        # mcmc_starting_tensors = torch.cat([new_rand_tensors, old_tensors], dim=0).detach().to(self.model.device)
+        if not num_new_samples == 0:
+            mcmc_starting_tensors: Batch = concat_batches([new_rand_tensors, old_tensors])
+        else:
+            mcmc_starting_tensors: Batch = old_tensors
         # Perform MCMC sampling
-        mcmc_samples = Sampler.generate_samples(self.model, mcmc_starting_tensors, labels, steps=steps, step_size=step_size)
+        # mcmc_samples = Sampler.generate_samples(self.model, mcmc_starting_tensors, labels, steps=steps, step_size=step_size)
+        # simulate no mcmc for testing
+        mcmc_samples: Batch = mcmc_starting_tensors
 
         # Add new images to the buffer and remove old ones if needed
-        self.buffer = list(mcmc_samples.to(torch.device("cpu")).chunk(self.sample_size, dim=0)) + self.buffer
+        # self.buffer = list(mcmc_samples.to(torch.device("cpu")).chunk(self.sample_size, dim=0)) + self.buffer
+        # self.buffer = self.buffer[:self.max_len]
+
+        self.buffer = list(itertools.chain(Batch.to_data_list(mcmc_samples), self.buffer))
         self.buffer = self.buffer[:self.max_len]
         return mcmc_samples
 
