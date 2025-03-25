@@ -25,6 +25,8 @@ class Sampler:
         self.sample_size = sample_size
         self.max_len = max_len
         # self.buffer = [(torch.rand((1,) + img_shape) * 2 - 1) for _ in range(self.sample_size)]
+        # TODO: self.buffer deve essere identico a come era per le immagini. L'unica differenza è che ci saranno deu buffer: uno per le matrici di adiacenza ed uno per le features di nodo
+        # Quindi il codice è molto simile a quello che avevi prima, con la differenza che devi fare le operazioni per entrambi i buffer.
         self.buffer: List[Data] = [generate_random_graph() for _ in range(self.sample_size)]
 
     def sample_new_tensor(self, labels, steps: int = 60, step_size: float = 10.0) -> Batch:
@@ -40,7 +42,7 @@ class Sampler:
         if not num_new_samples == 0:
             new_rand_tensors: Batch = Batch.from_data_list([generate_random_graph() for _ in range(num_new_samples)])
         # Randomlly select the old tensor from the buffer
-        # old_tensors = torch.cat(random.choices(self.buffer, k=self.sample_size - num_new_samples), dim=0)
+        # old_tensors = torch.cat(random.choices(self.buffer, k=self.sample_size - num_new_samples)
         old_tensors: Batch = Batch.from_data_list(random.choices(self.buffer, k=self.sample_size - num_new_samples))
         # Concatenate the old tensors and the new ones in the batch dimension
         # mcmc_starting_tensors = torch.cat([new_rand_tensors, old_tensors], dim=0).detach().to(self.model.device)
