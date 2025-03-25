@@ -1,7 +1,6 @@
 import itertools
 import random
 from typing import List
-
 import torch
 import numpy as np
 from lightning import LightningModule
