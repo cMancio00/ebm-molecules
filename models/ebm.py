@@ -1,11 +1,11 @@
 import torch
+from torch import Tensor
 from torch.nn import CrossEntropyLoss
-from models import Small_CNN
 from models.graph_models import MoNet
 from utils.Sampler import Sampler
 import lightning as pl
 import torch.optim as optim
-from utils.graphs import generate_random_graph, concat_batches
+from utils.graphs import generate_random_graph
 from torch_geometric.data import Data, Batch
 
 class DeepEnergyModel(pl.LightningModule):
@@ -28,73 +28,40 @@ class DeepEnergyModel(pl.LightningModule):
         scheduler = optim.lr_scheduler.StepLR(optimizer, 1, gamma=0.97)
         return [optimizer], [scheduler]
 
-    # def training_step(self, batch, batch_idx):
-    #     # A Data in the Batch will have the following structure:
-    #     # Data(x=[75, 1], edge_index=[2, 1431], y=[1], pos=[75, 2], edge_attr=[1431, 2])
-    #     labels: torch.Tensor = batch.y
-    #     batch.__delattr__('y')
-    #     cross_entropy = CrossEntropyLoss()(self.cnn(batch), labels)
-    #
-    #     # -----Sample------
-    #     fake_imgs = self.sampler.sample_new_tensor(steps=self.mcmc_steps, step_size=self.mcmc_learning_rate, labels=labels)
-    #
-    #     print(f"\nBatch type: {type(batch)}")
-    #     print(batch[0])
-    #     print(batch)
-    #     print(f"Samples type: {type(fake_imgs)}")
-    #     print(fake_imgs)
-    #
-    #     # Predict energy score for all images
-    #     # inp_imgs = torch.cat([batch, fake_imgs], dim=0)
-    #     # inp_imgs = concat_batches([batch, fake_imgs])
-    #     # real_out, fake_out = self.cnn(inp_imgs).chunk(2, dim=0)
-    #     # real_out = real_out[torch.arange(labels.size(0)),labels]
-    #     # fake_out = fake_out[torch.arange(labels.size(0)),labels]
-    #
-    #     real_out = self.cnn(batch)
-    #     fake_out = self.cnn(fake_imgs)
-    #     real_out = real_out[torch.arange(labels.size(0)),labels]
-    #     fake_out = fake_out[torch.arange(labels.size(0)),labels]
-    #
-    #     # Calculate losses
-    #     reg_loss = 0 # self.hparams.alpha * (real_out ** 2 + fake_out ** 2).mean()
-    #     generative_loss = (fake_out - real_out).mean()
-    #     # loss = cross_entropy + generative_loss + reg_loss
-    #     loss = generative_loss
-    #     # Logging
-    #     self.log('loss', loss)
-    #     self.log('loss_regularization', reg_loss)
-    #     self.log('loss_contrastive_divergence', generative_loss)
-    #     self.log('Positive_phase_energy', real_out.mean())
-    #     self.log('Negative_phase_energy', fake_out.mean())
-    #     self.log("Cross Entropy", cross_entropy)
-    #     return loss
-
     def training_step(self, batch, batch_idx):
-        labels = batch.y
-        positive_energy = self(batch)
-        generated_samples = self.sampler.sample_new_tensor(steps=self.mcmc_steps, step_size=self.mcmc_learning_rate, labels=labels)
-        negative_energy = self(generated_samples)
+        labels: Tensor = batch.y
+        positive_energy: Tensor = self(batch)
+        generated_samples: Batch = self.sampler.sample_new_tensor(steps=self.mcmc_steps, step_size=self.mcmc_learning_rate, labels=labels)
+        negative_energy: Tensor = self(generated_samples)
+
+        cross_entropy: Tensor = CrossEntropyLoss()(positive_energy, labels)
 
         positive_energy = positive_energy[torch.arange(labels.size(0)), labels]
         negative_energy = negative_energy[torch.arange(labels.size(0)),labels]
-        return (negative_energy - positive_energy).mean()
+        generative_loss: Tensor = (negative_energy - positive_energy).mean()
+        loss: Tensor = generative_loss
+
+        self.log('loss', loss)
+        self.log('loss_contrastive_divergence', generative_loss)
+        self.log('Positive_phase_energy', positive_energy.mean())
+        self.log('Negative_phase_energy', negative_energy.mean())
+        self.log("Cross Entropy", cross_entropy)
+        return loss
     
     def validation_step(self, batch, batch_idx):
-        # # Da rivedere
-        # labels: torch.Tensor = batch.y
-        # # Bisogna inserire il batch_size
-        # fake_imgs = [generate_random_graph() for _ in range(self.batch_size)]
-        #
-        # inp_imgs = torch.cat([batch, fake_imgs], dim=0)
-        # real_out, fake_out = self.cnn(inp_imgs).chunk(2, dim=0)
-        # real_out = real_out[torch.arange(labels.size(0)),labels]
-        # fake_out = fake_out[torch.arange(labels.size(0)),labels]
-        #
-        # # cdiv = fake_out.mean() - real_out.mean()
-        # cdiv = (fake_out - real_out).mean()
-        # self.log('val_contrastive_divergence', cdiv)
-        pass
+        labels: Tensor = batch.y
+        positive_energy: Tensor = self(batch)
+        random_noise: Batch = Batch.from_data_list([generate_random_graph() for _ in range(self.batch_size)])
+        negative_energy: Tensor = self(random_noise)
+
+        positive_energy = positive_energy[torch.arange(labels.size(0)), labels]
+        negative_energy = negative_energy[torch.arange(labels.size(0)),labels]
+
+        loss: Tensor = (negative_energy - positive_energy).mean()
+        self.log('val_contrastive_divergence', loss)
+        # We can add CrossEntropy in validation
+        return loss
+
 
     def on_load_checkpoint(self, checkpoint):
         state_dict = checkpoint["state_dict"]
