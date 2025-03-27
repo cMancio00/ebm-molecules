@@ -6,6 +6,7 @@ import numpy as np
 from lightning import LightningModule
 from torch_geometric.data import Data, Batch
 from utils.graphs import generate_random_graph, concat_batches
+# from torchrl.data import ReplayBuffer, ListStorage
 
 
 class Sampler:
@@ -19,9 +20,16 @@ class Sampler:
         """
         super().__init__()
         self.model: LightningModule = model
+        # self.model.to(torch.device('cuda'))
         self.sample_size: int = sample_size
         self.max_len: int = max_len
-        self.buffer: List[Data] = [generate_random_graph() for _ in range(self.sample_size)]
+        # self.buffer: ReplayBuffer = ReplayBuffer(storage=ListStorage(self.max_len))
+        # self.buffer.add(generate_random_graph())
+        self.buffer = None
+
+    def init_buffer(self):
+        self.buffer: List[Data] = [generate_random_graph(device=self.model.device) for _ in range(self.sample_size)]
+
 
     def sample_new_tensor(self, labels, steps: int = 60, step_size: float = 10.0) -> Batch:
         """
@@ -32,10 +40,10 @@ class Sampler:
         """
         # Choose 95% of the batch from the buffer, 5% generate from scratch
         num_new_samples: int = np.random.binomial(self.sample_size, 0.05)
-        print(f"Generating: {num_new_samples} new samples")
         old_tensors: Batch = Batch.from_data_list(random.choices(self.buffer, k=self.sample_size - num_new_samples))
+
         if not num_new_samples == 0:
-            new_rand_tensors: Batch = Batch.from_data_list([generate_random_graph() for _ in range(num_new_samples)])
+            new_rand_tensors: Batch = Batch.from_data_list([generate_random_graph(device=self.model.device) for _ in range(num_new_samples)])
             mcmc_starting_tensors: Batch = concat_batches([new_rand_tensors, old_tensors])
         else:
             mcmc_starting_tensors: Batch = old_tensors

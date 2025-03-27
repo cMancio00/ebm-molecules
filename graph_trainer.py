@@ -2,12 +2,14 @@ from DataModules import MNISTSuperpixelDataModule
 from models.ebm import DeepEnergyModel
 from lightning import Trainer
 from lightning.pytorch.callbacks import ModelCheckpoint, Callback
-from torch import set_float32_matmul_precision
+from torch import set_float32_matmul_precision, device, cuda
 from lightning.pytorch.loggers import TensorBoardLogger
-
 from models.graph_models import MoNet
+from utils import Sampler
 from utils.graphs import superpixels_to_2d_image
 import matplotlib.pyplot as plt
+
+
 set_float32_matmul_precision('high')
 
 class UploadTrainingImagesCallback(Callback):
@@ -36,9 +38,9 @@ class UploadTrainingImagesCallback(Callback):
                 trainer.logger.experiment.add_figure(f"Data Batch Graphs", grid, global_step=trainer.current_epoch)
                 print(f"Done updating {self.images_to_upload} images to Tensorboard")
 
-data_module = MNISTSuperpixelDataModule()
+data_module = MNISTSuperpixelDataModule(num_workers=1)
 trainer = Trainer(
-    accelerator='cpu',
+    # accelerator='cpu',
     default_root_dir="graph_logs",
     logger=TensorBoardLogger("graph_logs"),
     max_epochs=11,
@@ -46,5 +48,6 @@ trainer = Trainer(
         ModelCheckpoint(),
         # UploadTrainingImagesCallback()
     ])
+
 model = DeepEnergyModel()
 trainer.fit(model, data_module)

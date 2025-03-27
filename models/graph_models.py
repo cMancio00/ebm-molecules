@@ -1,5 +1,6 @@
 from torch import nn, norm
 from torch.nn import CrossEntropyLoss
+from torch_geometric.nn import GCNConv
 from torch_geometric.nn import max_pool, global_mean_pool
 from torch_geometric.nn.conv import GMMConv
 from torch_geometric.nn.pool import graclus
@@ -37,6 +38,37 @@ class MoNet(pl.LightningModule):
         data = max_pool(cluster, data, transform=T.Cartesian(cat=False))
 
         data.x = F.elu(self.conv3(data.x, data.edge_index, data.edge_attr))
+
+        x = global_mean_pool(data.x, data.batch)
+        x = F.elu(self.fc1(x))
+        x = F.dropout(x, training=self.training)
+        return F.log_softmax(self.fc2(x), dim=1)
+
+    def configure_optimizers(self):
+        optimizer = optim.Adam(self.parameters())
+        scheduler = optim.lr_scheduler.StepLR(optimizer, 1, gamma=0.97)
+        return [optimizer], [scheduler]
+
+    def training_step(self, batch, batch_idx):
+        loss = CrossEntropyLoss()(self(batch), batch.y)
+        # loss = F.nll_loss(self(batch), batch.y)
+        self.log('CrossEntropy loss', loss)
+        return loss
+
+class gcn(pl.LightningModule):
+
+    def __init__(self, out_dim: int = 10):
+        super(gcn, self).__init__()
+        self.conv1 = GCNConv(1,32)
+        self.conv2 = GCNConv(32, 64)
+        self.conv3 = GCNConv(64, 64)
+        self.fc1 = nn.Linear(64, 128)
+        self.fc2 = nn.Linear(128, out_dim)
+
+    def forward(self, data):
+        data.x = F.elu(self.conv1(data.x, data.edge_index))
+        data.x = F.elu(self.conv2(data.x, data.edge_index))
+        data.x = F.elu(self.conv3(data.x, data.edge_index))
 
         x = global_mean_pool(data.x, data.batch)
         x = F.elu(self.fc1(x))

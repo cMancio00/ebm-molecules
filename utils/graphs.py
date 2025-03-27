@@ -1,21 +1,22 @@
 import itertools
-
 import torch
 from torch_geometric.data import Data, Batch
 import numpy as np
 import cv2
 from torch_geometric.utils import dense_to_sparse
+from torch import device
 
 def concat_batches(batches: list[Batch]) -> Batch:
     return Batch.from_data_list(
         list(itertools.chain(*[batch.to_data_list() for batch in batches]))
     )
 
-def generate_random_graph(n_nodes: int = 75, n_edge_feature: int = 2) -> Data:
-    x: torch.Tensor = torch.rand((n_nodes, 1))
-    edge_index: torch.Tensor = dense_to_sparse(torch.randint(0, 2, (n_nodes, n_nodes), dtype=torch.int64))[0]
-    pos: torch.Tensor = torch.rand((n_nodes, 2)) * 28
-    edge_attr: torch.Tensor = torch.rand((edge_index.shape[1], n_edge_feature))
+def generate_random_graph(n_nodes: int = 75, n_edge_feature: int = 2, device: device = device('cpu')) -> Data:
+    x: torch.Tensor = torch.rand((n_nodes, 1), device=device)
+    edge_index: torch.Tensor = dense_to_sparse(
+        torch.randint(0, 2, (n_nodes, n_nodes), dtype=torch.int64, device=device))[0]
+    pos: torch.Tensor = torch.rand((n_nodes, 2), device=device) * 28
+    edge_attr: torch.Tensor = torch.rand((edge_index.shape[1], n_edge_feature), device=device)
     return Data(x=x, edge_index=edge_index, pos=pos, edge_attr=edge_attr)
 
 def superpixels_to_2d_image(rec: Data, scale: int = 30, edge_width: int = 1) -> np.ndarray:
