@@ -66,14 +66,15 @@ class gcn(pl.LightningModule):
         self.fc2 = nn.Linear(128, out_dim)
 
     def forward(self, data):
-        data.x = F.elu(self.conv1(data.x, data.edge_index))
-        data.x = F.elu(self.conv2(data.x, data.edge_index))
-        data.x = F.elu(self.conv3(data.x, data.edge_index))
+        x = F.elu(self.conv1(data.x, data.edge_index))
+        x = F.elu(self.conv2(x, data.edge_index))
+        x = F.elu(self.conv3(x, data.edge_index))
 
-        x = global_mean_pool(data.x, data.batch)
+        x = global_mean_pool(x, data.batch)
         x = F.elu(self.fc1(x))
-        x = F.dropout(x, training=self.training)
-        return F.log_softmax(self.fc2(x), dim=1)
+        # x = F.dropout(x, training=self.training)
+        # return F.log_softmax(self.fc2(x), dim=1)
+        return self.fc2(x)
 
     def configure_optimizers(self):
         optimizer = optim.Adam(self.parameters())

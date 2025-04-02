@@ -38,9 +38,8 @@ class UploadTrainingImagesCallback(Callback):
                 trainer.logger.experiment.add_figure(f"Data Batch Graphs", grid, global_step=trainer.current_epoch)
                 print(f"Done updating {self.images_to_upload} images to Tensorboard")
 
-data_module = MNISTSuperpixelDataModule(num_workers=1)
+data_module = MNISTSuperpixelDataModule(num_workers=4, batch_size=64)
 trainer = Trainer(
-    # accelerator='cpu',
     default_root_dir="graph_logs",
     logger=TensorBoardLogger("graph_logs"),
     max_epochs=11,
@@ -49,5 +48,5 @@ trainer = Trainer(
         # UploadTrainingImagesCallback()
     ])
 
-model = DeepEnergyModel()
+model = DeepEnergyModel(batch_size=64, mcmc_steps=20)
 trainer.fit(model, data_module)

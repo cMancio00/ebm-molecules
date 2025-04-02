@@ -48,17 +48,16 @@ class Sampler:
         else:
             mcmc_starting_tensors: Batch = old_tensors
         # Perform MCMC sampling
-        # mcmc_samples = Sampler.generate_samples(self.model, mcmc_starting_tensors, labels, steps=steps, step_size=step_size)
-        # simulate no mcmc for testing
-        mcmc_samples: Batch = mcmc_starting_tensors
+        mcmc_samples = Sampler.generate_samples(self.model, mcmc_starting_tensors, labels, steps=steps, step_size=step_size)
+        # mcmc_samples = mcmc_starting_tensors
 
         self.buffer = list(itertools.chain(Batch.to_data_list(mcmc_samples), self.buffer))
         self.buffer = self.buffer[:self.max_len]
         return mcmc_samples
 
     @staticmethod
-    def generate_samples(model: LightningModule, mcmc_starting_tensors: torch.Tensor, lables, steps: int = 60, step_size: float = 10.0,
-                         return_tensors_each_step: bool = False) -> torch.Tensor:
+    def generate_samples(model: LightningModule, batch: Batch, labels: torch.Tensor,
+                         steps: int = 60, step_size: float = 10.0) -> Batch:
         """
         Function for generating new tensors via MCMC, given a model for :math:`E_{\\theta}`
         The MCMC algorith perform the following update:
@@ -70,7 +69,6 @@ class Sampler:
         :param mcmc_starting_tensors: Tensors to start from for sampling. If you want to generate new images, enter noise between -1 and 1.
         :param steps: Number of iterations in the MCMC algorithm.
         :param step_size: Learning rate :math:`\\varepsilon`
-        :param return_tensors_each_step: If True, we return the sample at every iteration of the MCMC
         :return: Sampled Tensors from the Energy distribution
         """
 
@@ -79,38 +77,29 @@ class Sampler:
         model.eval()
         for p in model.parameters():
             p.requires_grad = False
-        mcmc_starting_tensors.requires_grad = True
-        # Enable gradient calculation if not already the case
         had_gradients_enabled = torch.is_grad_enabled()
-        torch.set_grad_enabled(True)
 
-        # We use a buffer tensor in which we generate noise each loop iteration.
-        noise = torch.randn(mcmc_starting_tensors.shape, device=mcmc_starting_tensors.device)
-
-        # List for storing generations at each step (for later analysis)
-        tensors_each_step = []
+        noise_x = torch.randn(batch.x.shape, device=model.device)
 
         # MCMC
-        for _ in range(steps):
-            # Part 1: Add noise to the input.
-            noise.normal_(0, 0.005)
-            mcmc_starting_tensors.data.add_(noise.data)
-            mcmc_starting_tensors.data.clamp_(min=-1.0, max=1.0)
-
-            # Part 2: Get the energy and calculate the gradient of the input
-            energy: torch.Tensor = -(model(mcmc_starting_tensors)[torch.arange(lables.size(0)),lables])
-            # energy.logsumexp(dim=0)
+        batch.requires_grad = True
+        # print("")
+        for i in range(steps):
+            noise_x.normal_(0, 0.005)
+            # print(f"Starting shape of x: {batch.x.shape}")
+            energy: torch.Tensor = -(model(batch)[torch.arange(labels.size(0)), labels])
+            # print(f"Energy: {energy.shape}\n{energy}\nSum: {energy.sum()}")
+            batch.x.retain_grad()
             energy.sum().backward()
-            mcmc_starting_tensors.grad.data.clamp_(-0.03, 0.03)
+            batch.x.data.clamp_(min=-0.03, max=0.03)
+            # print(f"Shape of grad_x: {batch.x.grad.shape}")
+            # print(f"Shape of x: {batch.x.shape}")
+            batch.x.data.add_(-step_size * batch.x.grad + noise_x)
+            batch.x.data.clamp_(min=-1.0, max=1.0)
+            # print(f"Shape of x after add: {batch.x.shape}")
+            batch.x.grad.zero_()
 
-            # Apply gradients to our current samples
-            mcmc_starting_tensors.data.add_(-step_size * mcmc_starting_tensors.grad.data)
-            mcmc_starting_tensors.grad.detach_()
-            mcmc_starting_tensors.grad.zero_()
-            mcmc_starting_tensors.data.clamp_(min=-1.0, max=1.0)
 
-            if return_tensors_each_step:
-                tensors_each_step.append(mcmc_starting_tensors.clone().detach())
 
         # Reactivate gradients for parameters for training
         for p in model.parameters():
@@ -120,9 +109,6 @@ class Sampler:
         # Reset gradient calculation to setting before this function
         torch.set_grad_enabled(had_gradients_enabled)
 
-        if return_tensors_each_step:
-            return torch.stack(tensors_each_step, dim=0)
-        else:
-            return mcmc_starting_tensors
+        return batch
 
 
