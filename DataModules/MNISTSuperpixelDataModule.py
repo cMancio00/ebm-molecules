@@ -20,17 +20,16 @@ class MNISTSuperpixelDataModule(pl.LightningDataModule):
 
     @override
     def prepare_data(self):
-        # Better check why we use Polar coordinates
-        MNISTSuperpixels(self.data_dir, train=True, pre_transform=T.Polar())
-        MNISTSuperpixels(self.data_dir, train=False, pre_transform=T.Polar())
+        MNISTSuperpixels(self.data_dir, train=True)
+        MNISTSuperpixels(self.data_dir, train=False)
 
     @override
     def setup(self, stage):
         if stage == "fit":
             mnist_full = MNISTSuperpixels(self.data_dir, train=True)
-            # to_take = mnist_full.targets == 0
-            # mnist_full.data = mnist_full.data[to_take]
-            # mnist_full.targets = mnist_full.targets[to_take]
+            to_take = (mnist_full.y == 0) | (mnist_full.y == 1)
+            mnist_full = mnist_full[to_take]
+
             self.mnist_train, self.mnist_val = random_split(
                 mnist_full, [11/12, 1/12]
             )
@@ -40,7 +39,7 @@ class MNISTSuperpixelDataModule(pl.LightningDataModule):
     @override
     def train_dataloader(self):
         return DataLoader(self.mnist_train, batch_size=self.batch_size, drop_last=True, shuffle=True, pin_memory=True,
-                          num_workers=self.num_workers)
+                          num_workers=self.num_workers, exclude_keys=["pos", "edge_attr"])
 
     @override
     def val_dataloader(self):

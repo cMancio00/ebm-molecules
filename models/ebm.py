@@ -1,28 +1,34 @@
 import torch
 from torch import Tensor
 from torch.nn import CrossEntropyLoss
-from models.graph_models import MoNet, gcn
+from torchmetrics import Accuracy
+
+from models.graph_models import GCN_Dense
 from utils.Sampler import Sampler
 import lightning as pl
 import torch.optim as optim
 from utils.graphs import generate_random_graph
 from torch_geometric.data import Batch
+from utils.graphs import densify
+
 
 class DeepEnergyModel(pl.LightningModule):
 
-    def __init__(self, batch_size : int = 32, alpha=0.1, lr=1e-4, beta1=0.0, mcmc_steps: int = 60, mcmc_learning_rate: float = 10.0):
+    def __init__(self, batch_size : int = 32, alpha=0.1, lr=1e-4, beta1=0.0, mcmc_steps: int = 60, mcmc_learning_rate: float = 1.0):
         super().__init__()
         self.save_hyperparameters()
-        # self.cnn = MoNet()
-        self.cnn = gcn()
-        # self.cnn: pl.LightningModule = MoNet().to(self.device)
+        self.cnn = GCN_Dense(
+            in_channels=1,
+            hidden_channels=64,
+            out_channels=2,
+        )
         self.batch_size = batch_size
         self.sampler = Sampler(self.cnn, sample_size=self.batch_size)
         self.mcmc_steps = mcmc_steps
         self.mcmc_learning_rate = mcmc_learning_rate
 
-    def forward(self, x):
-        z = self.cnn(x)
+    def forward(self, x, adj, mask):
+        z = self.cnn(x, adj, mask)
         return z
 
     def configure_optimizers(self):
@@ -32,36 +38,55 @@ class DeepEnergyModel(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         labels: Tensor = batch.y
-        positive_energy: Tensor = self.cnn(batch)
+        x, adj, mask = densify(batch)
+        positive_energy: Tensor = self(x, adj, mask)
+
         generated_samples: Batch = self.sampler.sample_new_tensor(steps=self.mcmc_steps, step_size=self.mcmc_learning_rate, labels=labels)
-        negative_energy: Tensor = self.cnn(generated_samples)
+
+        x, adj, mask = densify(generated_samples)
+        negative_energy: Tensor = self(x, adj, mask)
 
         cross_entropy: Tensor = CrossEntropyLoss()(positive_energy, labels)
 
         positive_energy = positive_energy[torch.arange(labels.size(0)), labels]
         negative_energy = negative_energy[torch.arange(labels.size(0)),labels]
         generative_loss: Tensor = (negative_energy - positive_energy).mean()
-        loss: Tensor = generative_loss
 
-        self.log('loss', loss, batch_size=self.batch_size)
-        # self.log('loss_contrastive_divergence', generative_loss)
+        penalty = self.hparams.alpha * (positive_energy ** 2 + negative_energy ** 2).mean()
+        loss: Tensor = generative_loss + cross_entropy + penalty
+
+        self.log('loss', loss)
+        self.log('loss_contrastive_divergence', generative_loss)
+        self.log('penalty', penalty)
         # self.log('Positive_phase_energy', positive_energy.mean())
         # self.log('Negative_phase_energy', negative_energy.mean())
-        # self.log("Cross Entropy", cross_entropy)
+        self.log("Cross Entropy", cross_entropy)
         return loss
     
     def validation_step(self, batch, batch_idx):
         labels: Tensor = batch.y
-        positive_energy: Tensor = self(batch)
+        x, adj, mask = densify(batch)
+        positive_energy: Tensor = self(x, adj, mask)
         random_noise: Batch = Batch.from_data_list([generate_random_graph(device=self.device) for _ in range(self.batch_size)])
-        negative_energy: Tensor = self(random_noise)
+
+        x, adj, mask = densify(random_noise)
+        negative_energy: Tensor = self(x, adj, mask)
+
+        cross_entropy: Tensor = CrossEntropyLoss()(positive_energy, labels)
+        accuracy = Accuracy(task="multiclass", num_classes=2).to(self.device)
+        pred = positive_energy.argmax(dim=-1)
+
 
         positive_energy = positive_energy[torch.arange(labels.size(0)), labels]
         negative_energy = negative_energy[torch.arange(labels.size(0)),labels]
 
         loss: Tensor = (negative_energy - positive_energy).mean()
+
+
         self.log('val_contrastive_divergence', loss, batch_size=self.batch_size)
-        # We can add CrossEntropy in validation
+        self.log("Cross Entropy Validation", cross_entropy)
+        self.log("Accuracy Validation", accuracy(pred, batch.y))
+
         return loss
 
 
