@@ -1,78 +1,94 @@
 import torch
+from torch import Tensor
 from torch.nn import CrossEntropyLoss
-from models import Small_CNN
+from torchmetrics import Accuracy
+
+from models.graph_models import GCN_Dense
 from utils.Sampler import Sampler
 import lightning as pl
 import torch.optim as optim
+from utils.graphs import generate_random_graph
+from torch_geometric.data import Batch
+from utils.graphs import densify
+
 
 class DeepEnergyModel(pl.LightningModule):
 
-    def __init__(self, img_shape : tuple[int, int, int] = (1, 28, 28), batch_size : int = 32, alpha=0.1, lr=1e-4, beta1=0.0, mcmc_steps: int = 60, mcmc_learning_rate: float = 10.0,**CNN_args):
+    def __init__(self, batch_size : int = 32, alpha=0.1, lr=1e-4, beta1=0.0, mcmc_steps: int = 60, mcmc_learning_rate: float = 1.0):
         super().__init__()
         self.save_hyperparameters()
-        self.cnn = Small_CNN(**CNN_args)
+        self.cnn = GCN_Dense(
+            in_channels=1,
+            hidden_channels=64,
+            out_channels=2,
+        )
         self.batch_size = batch_size
-        self.sampler = Sampler(self.cnn, img_shape=tuple(img_shape), sample_size=self.batch_size)
+        self.sampler = Sampler(self.cnn, sample_size=self.batch_size)
         self.mcmc_steps = mcmc_steps
         self.mcmc_learning_rate = mcmc_learning_rate
 
-    def forward(self, x):
-        z = self.cnn(x)
+    def forward(self, x, adj, mask):
+        z = self.cnn(x, adj, mask)
         return z
 
     def configure_optimizers(self):
-        # Energy models can have issues with momentum as the loss surfaces changes with its parameters.
-        # Hence, we set it to 0 by default.
         optimizer = optim.Adam(self.parameters(), lr=self.hparams.lr, betas=(self.hparams.beta1, 0.999))
-        scheduler = optim.lr_scheduler.StepLR(optimizer, 1, gamma=0.97) # Exponential decay over epochs
+        scheduler = optim.lr_scheduler.StepLR(optimizer, 1, gamma=0.97)
         return [optimizer], [scheduler]
 
     def training_step(self, batch, batch_idx):
-        # We add minimal noise to the original images to prevent the model from focusing on purely "clean" inputs
-        real_imgs, labels = batch
-        # We could move this to preprocessing step
-        small_noise = torch.randn_like(real_imgs) * 0.005
-        real_imgs.add_(small_noise).clamp_(min=-1.0, max=1.0)
+        labels: Tensor = batch.y
+        x, adj, mask = densify(batch)
+        positive_energy: Tensor = self(x, adj, mask)
 
-        #Calculate CrossEntropy
-        logits = self.cnn(real_imgs)
-        cross_entropy = CrossEntropyLoss()(logits,labels)
+        generated_samples: Batch = self.sampler.sample_new_tensor(steps=self.mcmc_steps, step_size=self.mcmc_learning_rate, labels=labels)
 
-        # Sample fake tensors (samples n = batch_size tensors)
-        fake_imgs = self.sampler.sample_new_tensor(steps=self.mcmc_steps, step_size=self.mcmc_learning_rate, labels=labels)
+        x, adj, mask = densify(generated_samples)
+        negative_energy: Tensor = self(x, adj, mask)
 
-        # Predict energy score for all images
-        inp_imgs = torch.cat([real_imgs, fake_imgs], dim=0)
-        real_out, fake_out = self.cnn(inp_imgs).chunk(2, dim=0)
-        real_out = real_out[torch.arange(labels.size(0)),labels]
-        fake_out = fake_out[torch.arange(labels.size(0)),labels]
+        cross_entropy: Tensor = CrossEntropyLoss()(positive_energy, labels)
 
-        # Calculate losses
-        reg_loss = 0 # self.hparams.alpha * (real_out ** 2 + fake_out ** 2).mean()
-        generative_loss = (fake_out - real_out).mean()
-        # loss = cross_entropy + generative_loss + reg_loss
-        loss = generative_loss
-        # Logging
+        positive_energy = positive_energy[torch.arange(labels.size(0)), labels]
+        negative_energy = negative_energy[torch.arange(labels.size(0)),labels]
+        generative_loss: Tensor = (negative_energy - positive_energy).mean()
+
+        penalty = self.hparams.alpha * (positive_energy ** 2 + negative_energy ** 2).mean()
+        loss: Tensor = generative_loss + cross_entropy + penalty
+
         self.log('loss', loss)
-        self.log('loss_regularization', reg_loss)
         self.log('loss_contrastive_divergence', generative_loss)
-        self.log('Positive_phase_energy', real_out.mean())
-        self.log('Negative_phase_energy', fake_out.mean())
+        self.log('penalty', penalty)
+        # self.log('Positive_phase_energy', positive_energy.mean())
+        # self.log('Negative_phase_energy', negative_energy.mean())
         self.log("Cross Entropy", cross_entropy)
         return loss
     
     def validation_step(self, batch, batch_idx):
-        real_imgs, labels = batch
-        fake_imgs = torch.rand_like(real_imgs) * 2 - 1
+        labels: Tensor = batch.y
+        x, adj, mask = densify(batch)
+        positive_energy: Tensor = self(x, adj, mask)
+        random_noise: Batch = Batch.from_data_list([generate_random_graph(device=self.device) for _ in range(self.batch_size)])
 
-        inp_imgs = torch.cat([real_imgs, fake_imgs], dim=0)
-        real_out, fake_out = self.cnn(inp_imgs).chunk(2, dim=0)
-        real_out = real_out[torch.arange(labels.size(0)),labels]
-        fake_out = fake_out[torch.arange(labels.size(0)),labels]
+        x, adj, mask = densify(random_noise)
+        negative_energy: Tensor = self(x, adj, mask)
 
-        # cdiv = fake_out.mean() - real_out.mean()
-        cdiv = (fake_out - real_out).mean()
-        self.log('val_contrastive_divergence', cdiv)
+        cross_entropy: Tensor = CrossEntropyLoss()(positive_energy, labels)
+        accuracy = Accuracy(task="multiclass", num_classes=2).to(self.device)
+        pred = positive_energy.argmax(dim=-1)
+
+
+        positive_energy = positive_energy[torch.arange(labels.size(0)), labels]
+        negative_energy = negative_energy[torch.arange(labels.size(0)),labels]
+
+        loss: Tensor = (negative_energy - positive_energy).mean()
+
+
+        self.log('val_contrastive_divergence', loss, batch_size=self.batch_size)
+        self.log("Cross Entropy Validation", cross_entropy)
+        self.log("Accuracy Validation", accuracy(pred, batch.y))
+
+        return loss
+
 
     def on_load_checkpoint(self, checkpoint):
         state_dict = checkpoint["state_dict"]
@@ -87,5 +103,6 @@ class DeepEnergyModel(pl.LightningModule):
                 new_state_dict[key] = value
         checkpoint["state_dict"] = new_state_dict
 
-
+    def on_train_start(self) -> None:
+        self.sampler.init_buffer()
         

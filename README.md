@@ -91,7 +91,7 @@ ipython
 %load_ext tensorboard
 ```
 ```python
-%tensorboard --logdir ./lightning_logs
+%tensorboard --logdir ./graph_logs
 ```
 The TensorBoard will listen to port `6006`, so you can visit the [webApp](http://localhost:6006/).
 
