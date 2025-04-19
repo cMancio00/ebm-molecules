@@ -2,9 +2,10 @@ from pathlib import Path
 from typing import override
 import lightning as pl
 from torch.utils.data import random_split
-from torch_geometric.loader import DataLoader
 from torch_geometric.datasets import MNISTSuperpixels
 import torch_geometric.transforms as T
+from utils.data import DenseGraphDataset, dense_collate_fn
+from torch.utils.data import DataLoader
 
 
 class MNISTSuperpixelDataModule(pl.LightningDataModule):
@@ -20,13 +21,13 @@ class MNISTSuperpixelDataModule(pl.LightningDataModule):
 
     @override
     def prepare_data(self):
-        MNISTSuperpixels(self.data_dir, train=True)
-        MNISTSuperpixels(self.data_dir, train=False)
+        DenseGraphDataset(MNISTSuperpixels(self.data_dir, train=True))
+        DenseGraphDataset(MNISTSuperpixels(self.data_dir, train=False))
 
     @override
     def setup(self, stage):
         if stage == "fit":
-            mnist_full = MNISTSuperpixels(self.data_dir, train=True)
+            mnist_full = DenseGraphDataset(MNISTSuperpixels(self.data_dir, train=True))
             to_take = (mnist_full.y == 0) | (mnist_full.y == 1)
             mnist_full = mnist_full[to_take]
 
@@ -34,17 +35,19 @@ class MNISTSuperpixelDataModule(pl.LightningDataModule):
                 mnist_full, [11/12, 1/12]
             )
         if stage == "test":
-            self.mnist_test = MNISTSuperpixels(self.data_dir, train=False)
+            self.mnist_test = DenseGraphDataset(MNISTSuperpixels(self.data_dir, train=False))
 
     @override
     def train_dataloader(self):
         return DataLoader(self.mnist_train, batch_size=self.batch_size, drop_last=True, shuffle=True, pin_memory=True,
-                          num_workers=self.num_workers, exclude_keys=["pos", "edge_attr"])
+                          num_workers=self.num_workers, collate_fn=dense_collate_fn)
 
     @override
     def val_dataloader(self):
-        return DataLoader(self.mnist_val, batch_size=self.batch_size, num_workers=self.num_workers)
+        return DataLoader(self.mnist_val, batch_size=self.batch_size, num_workers=self.num_workers,
+                          collate_fn=dense_collate_fn)
 
     @override
     def test_dataloader(self):
-        return DataLoader(self.mnist_test, batch_size=self.batch_size, num_workers=self.num_workers)
+        return DataLoader(self.mnist_test, batch_size=self.batch_size, num_workers=self.num_workers,
+                          collate_fn=dense_collate_fn)
