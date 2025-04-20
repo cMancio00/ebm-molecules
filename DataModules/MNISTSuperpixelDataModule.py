@@ -22,6 +22,26 @@ class DenseData:
             f"mask={tuple(self.mask.shape)})"
         )
 
+    def __add__(self, other):
+        if not isinstance(other, DenseData):
+            raise ValueError("Both objects need to be of type DenseData")
+        #TODO:
+        #Check for concatenation conditions
+        x_concat = torch.cat((self.x, other.x), dim=0)
+        adj_concat = torch.cat((self.adj, other.adj), dim=0)
+        mask_concat = torch.cat((self.mask, other.mask), dim=0)
+        return DenseData(x_concat, adj_concat, mask_concat)
+
+    def __getitem__(self, index):
+        return DenseData(
+            self.x[index],
+            self.adj[index],
+            self.mask[index]
+        )
+
+    def __len__(self):
+        return self.x.shape[0]
+
 
 @dataclass
 class DenseElement:
@@ -36,16 +56,22 @@ class DenseElement:
         )
 
     def __len__(self):
-        return self.data.x.shape[0]
+        return self.data.__len__()
 
 
 def densify(data: Batch) -> DenseElement:
+    return DenseElement(
+        densify_data(data),
+        data.y
+    )
+
+def densify_data(data: Batch) -> DenseData:
     x, mask = to_dense_batch(
         torch.cat((data.x, data.pos), dim=1),
         data.batch
     )
     adj = to_dense_adj(data.edge_index, data.batch)
-    return DenseElement(DenseData(x, adj, mask), data.y)
+    return DenseData(x, adj, mask)
 
 
 class DenseMNISTDataLoader(DataLoader):
@@ -90,8 +116,8 @@ class MNISTSuperpixelDataModule(pl.LightningDataModule):
     def setup(self, stage):
         if stage == "fit":
             mnist_full = MNISTSuperpixels(self.data_dir, train=True)
-            # to_take = (mnist_full.y == 0) | (mnist_full.y == 1)
-            # mnist_full = mnist_full[to_take]
+            to_take = (mnist_full.y == 0) | (mnist_full.y == 1)
+            mnist_full = mnist_full[to_take]
 
             self.mnist_train, self.mnist_val = random_split(
                 mnist_full, [11/12, 1/12]
