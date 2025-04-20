@@ -3,6 +3,7 @@ from torch import Tensor
 from torch.nn import CrossEntropyLoss
 from torchmetrics import Accuracy
 
+from DataModules.MNISTSuperpixelDataModule import densify_data
 from models.graph_models import GCN_Dense
 from utils.Sampler import Sampler
 import lightning as pl
@@ -18,7 +19,7 @@ class DeepEnergyModel(pl.LightningModule):
         super().__init__()
         self.save_hyperparameters()
         self.cnn = GCN_Dense(
-            in_channels=1,
+            in_channels=3,
             hidden_channels=64,
             out_channels=2,
         )
@@ -38,12 +39,12 @@ class DeepEnergyModel(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         labels: Tensor = batch.y
-        x, adj, mask = densify(batch)
+        x, adj, mask = batch.data.x, batch.data.adj, batch.data.mask
         positive_energy: Tensor = self(x, adj, mask)
 
-        generated_samples: Batch = self.sampler.sample_new_tensor(steps=self.mcmc_steps, step_size=self.mcmc_learning_rate, labels=labels)
+        generated_samples = self.sampler.sample_new_tensor(steps=self.mcmc_steps, step_size=self.mcmc_learning_rate, labels=labels)
 
-        x, adj, mask = densify(generated_samples)
+        x, adj, mask = generated_samples.x, generated_samples.adj, generated_samples.mask
         negative_energy: Tensor = self(x, adj, mask)
 
         cross_entropy: Tensor = CrossEntropyLoss()(positive_energy, labels)
@@ -65,11 +66,14 @@ class DeepEnergyModel(pl.LightningModule):
     
     def validation_step(self, batch, batch_idx):
         labels: Tensor = batch.y
-        x, adj, mask = densify(batch)
+        x, adj, mask = batch.data.x, batch.data.adj, batch.data.mask
         positive_energy: Tensor = self(x, adj, mask)
-        random_noise: Batch = Batch.from_data_list([generate_random_graph(device=self.device) for _ in range(self.batch_size)])
-
-        x, adj, mask = densify(random_noise)
+        random_noise = densify_data(
+                Batch.from_data_list(
+                    [generate_random_graph(device=self.device) for _ in range(self.batch_size)]
+                )
+        )
+        x, adj, mask = random_noise.x, random_noise.adj, random_noise.mask
         negative_energy: Tensor = self(x, adj, mask)
 
         cross_entropy: Tensor = CrossEntropyLoss()(positive_energy, labels)

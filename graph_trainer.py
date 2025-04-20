@@ -54,7 +54,7 @@ class UploadTrainingImagesCallback(Callback):
 
 
 batch_size: int = 128
-data_module = MNISTSuperpixelDataModule(num_workers=4, batch_size=batch_size)
+data_module = MNISTSuperpixelDataModule(num_workers=1, batch_size=batch_size)
 trainer = Trainer(
     default_root_dir="graph_logs",
     logger=TensorBoardLogger("graph_logs"),
@@ -64,11 +64,11 @@ trainer = Trainer(
         # UploadTrainingImagesCallback()
     ])
 
-# model = DeepEnergyModel(batch_size=batch_size, mcmc_steps=20)
-model = GCN_Dense(
-    in_channels=3,
-    hidden_channels=64,
-    out_channels=10,
-)
+model = DeepEnergyModel(batch_size=batch_size, mcmc_steps=20)
+# model = GCN_Dense(
+#     in_channels=3,
+#     hidden_channels=64,
+#     out_channels=2,
+# )
 
 trainer.fit(model, data_module)

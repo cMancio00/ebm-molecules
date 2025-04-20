@@ -4,8 +4,12 @@ from typing import List
 import torch
 import numpy as np
 from lightning import LightningModule
+from numpy.random import random_sample
 from torch_geometric.data import Data, Batch
+from torchmetrics.image import sam
+
 from utils.graphs import generate_random_graph, concat_batches, densify, to_sparse_list
+from DataModules.MNISTSuperpixelDataModule import DenseData, densify_data
 
 class Sampler:
 
@@ -23,30 +27,40 @@ class Sampler:
         self.buffer = None
 
     def init_buffer(self):
-        self.buffer: List[Data] = [generate_random_graph(device=self.model.device) for _ in range(self.sample_size)]
+        self.buffer: DenseData = densify_data(
+            Batch.from_data_list(
+                [generate_random_graph(device=self.model.device) for _ in range(self.sample_size)]
+            )
+        )
 
-
-    def sample_new_tensor(self, labels: torch.Tensor, steps: int = 60, step_size: float = 10.0) -> Batch:
+    def sample_new_tensor(self, labels: torch.Tensor, steps: int = 60, step_size: float = 10.0) -> DenseData:
         """
         Function for getting a new batch of sampled tensors via MCMC.
         Inputs:
             steps - Number of iterations in the MCMC.
             step_size - Learning rate nu in the algorithm above
         """
-        # Choose 95% of the batch from the buffer, 5% generate from scratch
-        num_new_samples: int = np.random.binomial(self.sample_size, 0.05)
-        old_tensors: Batch = Batch.from_data_list(random.choices(self.buffer, k=self.sample_size - num_new_samples))
-        if not num_new_samples == 0:
-            new_rand_tensors: Batch = Batch.from_data_list([generate_random_graph(device=self.model.device) for _ in range(num_new_samples)])
-            mcmc_starting_tensors: Batch = concat_batches([new_rand_tensors, old_tensors])
+        sampled_indexes: List[int] = random.sample(
+            range(len(self.buffer)),
+            np.random.binomial(self.sample_size, 1 - 0.05)
+        )
+        old_tensors: DenseData = self.buffer[sampled_indexes]
+
+        if not len(sampled_indexes) == self.sample_size:
+            new_rand_tensors: DenseData = densify_data(
+                Batch.from_data_list(
+                    [generate_random_graph(device=self.model.device) for _ in range(self.sample_size - len(sampled_indexes))]
+                )
+            )
+            mcmc_starting_tensors: DenseData = new_rand_tensors + old_tensors
+
         else:
-            mcmc_starting_tensors: Batch = old_tensors
+            mcmc_starting_tensors: DenseData = old_tensors
 
         # Perform MCMC sampling
-        mcmc_samples = Sampler.generate_samples(self.model, mcmc_starting_tensors, labels, steps=steps, step_size=step_size)
-
-        self.buffer = list(itertools.chain(Batch.to_data_list(mcmc_samples), self.buffer))
-        self.buffer = self.buffer[:self.max_len]
+        # mcmc_samples = Sampler.generate_samples(self.model, mcmc_starting_tensors, labels, steps=steps, step_size=step_size)
+        mcmc_samples: DenseData = mcmc_starting_tensors
+        self.buffer = (mcmc_samples + self.buffer)[:self.max_len]
         return mcmc_samples
 
     @staticmethod
