@@ -16,7 +16,9 @@ def concat_batches(batches: list[Batch]) -> Batch:
 
 def generate_random_graph(num_nodes: int = 75, num_edges: int = 1500, device: torch.device = torch.device('cpu')) -> Data:
     edges: torch.Tensor = torch.randint(0, num_nodes, (num_edges, 2), dtype=torch.long)
-    x: torch.Tensor = torch.rand((num_nodes, 1))
+    x: torch.Tensor = torch.rand((num_nodes, 3))
+    pos: torch.Tensor = torch.rand((num_nodes, 2)) * 28
+    x[:, 1:3] = pos
     return Data(x=x, edge_index=edges.t().contiguous()).coalesce().to(device)
 
 def densify(data: Batch) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:

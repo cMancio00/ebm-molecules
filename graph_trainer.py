@@ -6,6 +6,8 @@ from lightning import Trainer
 from lightning.pytorch.callbacks import ModelCheckpoint, Callback
 from torch import set_float32_matmul_precision
 from lightning.pytorch.loggers import TensorBoardLogger
+
+from models.graph_models import GCN_Dense
 from utils import Sampler
 from utils.graphs import superpixels_to_2d_image, generate_random_graph
 import matplotlib.pyplot as plt
@@ -62,10 +64,11 @@ trainer = Trainer(
         # UploadTrainingImagesCallback()
     ])
 
-model = DeepEnergyModel(batch_size=batch_size, mcmc_steps=20)
-# model = GCN_Dense(
-#     in_channels=1,
-#     hidden_channels=64,
-#     out_channels=10,
-# )
+# model = DeepEnergyModel(batch_size=batch_size, mcmc_steps=20)
+model = GCN_Dense(
+    in_channels=3,
+    hidden_channels=64,
+    out_channels=10,
+)
+
 trainer.fit(model, data_module)

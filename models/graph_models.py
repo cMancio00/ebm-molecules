@@ -57,39 +57,6 @@ class MoNet(pl.LightningModule):
         self.log('CrossEntropy loss', loss)
         return loss
 
-class gcn(pl.LightningModule):
-
-    def __init__(self, out_dim: int = 10):
-        super(gcn, self).__init__()
-        self.conv1 = GCNConv(1,32)
-        self.conv2 = GCNConv(32, 64)
-        self.conv3 = GCNConv(64, 64)
-        self.fc1 = nn.Linear(64, 128)
-        self.fc2 = nn.Linear(128, out_dim)
-
-    def forward(self, data):
-        x = F.elu(self.conv1(data.x, data.edge_index))
-        x = F.elu(self.conv2(x, data.edge_index))
-        x = F.elu(self.conv3(x, data.edge_index))
-
-        x = global_mean_pool(x, data.batch)
-        x = F.elu(self.fc1(x))
-        # x = F.dropout(x, training=self.training)
-        # return F.log_softmax(self.fc2(x), dim=1)
-        return self.fc2(x)
-
-    def configure_optimizers(self):
-        optimizer = optim.Adam(self.parameters())
-        scheduler = optim.lr_scheduler.StepLR(optimizer, 1, gamma=0.97)
-        return [optimizer], [scheduler]
-
-    def training_step(self, batch, batch_idx):
-        loss = CrossEntropyLoss()(self(batch), batch.y)
-        # loss = F.nll_loss(self(batch), batch.y)
-        self.log('CrossEntropy loss', loss)
-        return loss
-
-
 class GCN_Dense(pl.LightningModule):
     def __init__(self, in_channels, hidden_channels, out_channels):
         super().__init__()
@@ -112,18 +79,14 @@ class GCN_Dense(pl.LightningModule):
         return [optimizer], [scheduler]
 
     def training_step(self, batch, batch_idx):
-        x, mask = to_dense_batch(batch.x, batch.batch)
-        adj = to_dense_adj(batch.edge_index, batch.batch)
-        out = self(x, adj, mask)
+        out = self(batch.data.x, batch.data.adj, batch.data.mask)
         loss = F.cross_entropy(out, batch.y)
         self.log('CrossEntropy', loss)
         return loss
 
     def validation_step(self, batch, batch_idx):
         total_correct = 0
-        x, mask = to_dense_batch(batch.x, batch.batch)
-        adj = to_dense_adj(batch.edge_index, batch.batch)
-        out = self(x, adj, mask)
+        out = self(batch.data.x, batch.data.adj, batch.data.mask)
         pred = out.argmax(dim=-1)
         total_correct += int((pred == batch.y).sum())
         loss = total_correct / len(batch)
