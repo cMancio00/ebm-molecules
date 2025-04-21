@@ -58,14 +58,14 @@ class Sampler:
             mcmc_starting_tensors: DenseData = old_tensors
 
         # Perform MCMC sampling
-        # mcmc_samples = Sampler.generate_samples(self.model, mcmc_starting_tensors, labels, steps=steps, step_size=step_size)
-        mcmc_samples: DenseData = mcmc_starting_tensors
+        mcmc_samples = Sampler.generate_samples(self.model, mcmc_starting_tensors, labels, steps=steps, step_size=step_size)
+        # mcmc_samples: DenseData = mcmc_starting_tensors
         self.buffer = (mcmc_samples + self.buffer)[:self.max_len]
         return mcmc_samples
 
     @staticmethod
-    def generate_samples(model: LightningModule, batch: Batch, labels: torch.Tensor,
-                         steps: int = 60, step_size: float = 1.0) -> Batch:
+    def generate_samples(model: LightningModule, batch: DenseData, labels: torch.Tensor,
+                         steps: int = 60, step_size: float = 1.0) -> DenseData:
         """
         Function for generating new tensors via MCMC, given a model for :math:`E_{\\theta}`
         The MCMC algorith perform the following update:
@@ -88,7 +88,7 @@ class Sampler:
             p.requires_grad = False
         had_gradients_enabled = torch.is_grad_enabled()
 
-        x, adj, mask = densify(batch)
+        x, adj, mask = batch.x, batch.adj, batch.mask
         x.requires_grad_()
         adj.requires_grad_()
 
@@ -96,8 +96,7 @@ class Sampler:
         noise_adj = torch.randn(adj.shape, device=model.device)
 
         # MCMC
-        batch.requires_grad = True
-        # print("")
+        # batch.requires_grad = True
         for i in range(steps):
             noise_x.normal_(0, 0.005)
             noise_adj.normal_(0, 0.005)
@@ -111,13 +110,14 @@ class Sampler:
             adj = adj - (step_size * adj.grad) + noise_adj
             adj = (adj + torch.transpose(adj, 1, 2))/2
 
-            x.data.clamp_(0, 1)
+            x.data[:,:,0].clamp_(0, 1)
+            x.data[:, :, 1:].clamp_(0, 28)
             adj.data.clamp_(0,1)
 
         x = x.detach()
         adj = adj.detach()
-        tmp = to_sparse_list(x, adj, mask, batch.ptr)
-        batch = Batch.from_data_list(tmp)
+        # tmp = to_sparse_list(x, adj, mask, batch.ptr)
+        # batch = Batch.from_data_list(tmp)
 
 
         # Reactivate gradients for parameters for training
@@ -128,6 +128,6 @@ class Sampler:
         # Reset gradient calculation to setting before this function
         torch.set_grad_enabled(had_gradients_enabled)
 
-        return batch
+        return DenseData(x, adj, mask)
 
 

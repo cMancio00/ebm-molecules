@@ -6,6 +6,7 @@ from lightning import Trainer
 from lightning.pytorch.callbacks import ModelCheckpoint, Callback
 from torch import set_float32_matmul_precision
 from lightning.pytorch.loggers import TensorBoardLogger
+from lightning.pytorch import seed_everything
 
 from models.graph_models import GCN_Dense
 from utils import Sampler
@@ -52,23 +53,23 @@ class UploadTrainingImagesCallback(Callback):
             trainer.logger.experiment.add_figure(f"Data Batch Graphs", grid, global_step=trainer.current_epoch)
             print(f"Done updating {self.images_to_upload} images to Tensorboard")
 
-
+seed_everything(0)
 batch_size: int = 128
 data_module = MNISTSuperpixelDataModule(num_workers=1, batch_size=batch_size)
 trainer = Trainer(
     default_root_dir="graph_logs",
     logger=TensorBoardLogger("graph_logs"),
-    max_epochs=51,
+    max_epochs=101,
     callbacks=[
         ModelCheckpoint(),
         # UploadTrainingImagesCallback()
     ])
 
-model = DeepEnergyModel(batch_size=batch_size, mcmc_steps=20)
+model = DeepEnergyModel(batch_size=batch_size, mcmc_steps=40)
 # model = GCN_Dense(
 #     in_channels=3,
 #     hidden_channels=64,
-#     out_channels=2,
+#     out_channels=2
 # )
 
 trainer.fit(model, data_module)

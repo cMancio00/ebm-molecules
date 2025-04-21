@@ -34,6 +34,7 @@ def to_sparse_list(x, adj, mask, ptr) -> List[Data]:
         data.append(Data(x=sparse_x, edge_index=edge_index))
     return data
 
+
 def superpixels_to_2d_image(rec: Data, scale: int = 30, edge_width: int = 1) -> np.ndarray:
     pos = (rec.pos.clone() * scale).int()
 
