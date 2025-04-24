@@ -1,11 +1,12 @@
-import itertools
 import random
 from typing import List
 import torch
 import numpy as np
 from lightning import LightningModule
-from torch_geometric.data import Data, Batch
-from utils.graphs import generate_random_graph, concat_batches, densify, to_sparse_list
+from torch_geometric.data import Batch
+from utils.graphs import generate_random_graph
+from utils.data import DenseData, densify_data
+
 
 class Sampler:
 
@@ -23,35 +24,45 @@ class Sampler:
         self.buffer = None
 
     def init_buffer(self):
-        self.buffer: List[Data] = [generate_random_graph(device=self.model.device) for _ in range(self.sample_size)]
+        self.buffer: DenseData = densify_data(
+            Batch.from_data_list(
+                [generate_random_graph(device=self.model.device) for _ in range(self.sample_size)]
+            )
+        )
 
-
-    def sample_new_tensor(self, labels: torch.Tensor, steps: int = 60, step_size: float = 10.0) -> Batch:
+    def sample_new_tensor(self, labels: torch.Tensor, steps: int = 60, step_size: float = 10.0) -> DenseData:
         """
         Function for getting a new batch of sampled tensors via MCMC.
         Inputs:
             steps - Number of iterations in the MCMC.
             step_size - Learning rate nu in the algorithm above
         """
-        # Choose 95% of the batch from the buffer, 5% generate from scratch
-        num_new_samples: int = np.random.binomial(self.sample_size, 0.05)
-        old_tensors: Batch = Batch.from_data_list(random.choices(self.buffer, k=self.sample_size - num_new_samples))
-        if not num_new_samples == 0:
-            new_rand_tensors: Batch = Batch.from_data_list([generate_random_graph(device=self.model.device) for _ in range(num_new_samples)])
-            mcmc_starting_tensors: Batch = concat_batches([new_rand_tensors, old_tensors])
+        sampled_indexes: List[int] = random.sample(
+            range(len(self.buffer)),
+            np.random.binomial(self.sample_size, 1 - 0.05)
+        )
+        old_tensors: DenseData = self.buffer[sampled_indexes]
+
+        if not len(sampled_indexes) == self.sample_size:
+            new_rand_tensors: DenseData = densify_data(
+                Batch.from_data_list(
+                    [generate_random_graph(device=self.model.device) for _ in range(self.sample_size - len(sampled_indexes))]
+                )
+            )
+            mcmc_starting_tensors: DenseData = new_rand_tensors + old_tensors
+
         else:
-            mcmc_starting_tensors: Batch = old_tensors
+            mcmc_starting_tensors: DenseData = old_tensors
 
         # Perform MCMC sampling
         mcmc_samples = Sampler.generate_samples(self.model, mcmc_starting_tensors, labels, steps=steps, step_size=step_size)
-
-        self.buffer = list(itertools.chain(Batch.to_data_list(mcmc_samples), self.buffer))
-        self.buffer = self.buffer[:self.max_len]
+        # mcmc_samples: DenseData = mcmc_starting_tensors
+        self.buffer = (mcmc_samples + self.buffer)[:self.max_len]
         return mcmc_samples
 
     @staticmethod
-    def generate_samples(model: LightningModule, batch: Batch, labels: torch.Tensor,
-                         steps: int = 60, step_size: float = 1.0) -> Batch:
+    def generate_samples(model: LightningModule, batch: DenseData, labels: torch.Tensor,
+                         steps: int = 60, step_size: float = 1.0) -> DenseData:
         """
         Function for generating new tensors via MCMC, given a model for :math:`E_{\\theta}`
         The MCMC algorith perform the following update:
@@ -74,7 +85,7 @@ class Sampler:
             p.requires_grad = False
         had_gradients_enabled = torch.is_grad_enabled()
 
-        x, adj, mask = densify(batch)
+        x, adj, mask = batch.x, batch.adj, batch.mask
         x.requires_grad_()
         adj.requires_grad_()
 
@@ -82,8 +93,7 @@ class Sampler:
         noise_adj = torch.randn(adj.shape, device=model.device)
 
         # MCMC
-        batch.requires_grad = True
-        # print("")
+        # batch.requires_grad = True
         for i in range(steps):
             noise_x.normal_(0, 0.005)
             noise_adj.normal_(0, 0.005)
@@ -97,13 +107,12 @@ class Sampler:
             adj = adj - (step_size * adj.grad) + noise_adj
             adj = (adj + torch.transpose(adj, 1, 2))/2
 
-            x.data.clamp_(0, 1)
+            x.data[:,:,0].clamp_(0, 1)
+            x.data[:, :, 1:].clamp_(0, 28)
             adj.data.clamp_(0,1)
 
         x = x.detach()
         adj = adj.detach()
-        tmp = to_sparse_list(x, adj, mask, batch.ptr)
-        batch = Batch.from_data_list(tmp)
 
 
         # Reactivate gradients for parameters for training
@@ -114,6 +123,6 @@ class Sampler:
         # Reset gradient calculation to setting before this function
         torch.set_grad_enabled(had_gradients_enabled)
 
-        return batch
+        return DenseData(x, adj, mask)
 
 
