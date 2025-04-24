@@ -23,8 +23,8 @@ class MNISTSuperpixelDataModule(pl.LightningDataModule):
 
     @override
     def prepare_data(self):
-        MNISTSuperpixels(self.data_dir, train=True)
-        MNISTSuperpixels(self.data_dir, train=False)
+        DenseGraphDataset(MNISTSuperpixels(self.data_dir, train=True))
+        DenseGraphDataset(MNISTSuperpixels(self.data_dir, train=False))
 
     @override
     def setup(self, stage):
@@ -40,8 +40,7 @@ class MNISTSuperpixelDataModule(pl.LightningDataModule):
 
     @override
     def train_dataloader(self):
-        return DataLoader(self.mnist_train, batch_size=self.batch_size, drop_last=True, shuffle=True, pin_memory=True,
-                           collate_fn=dense_collate_fn, num_workers=self.num_workers)
+        return DataLoader(self.mnist_train, batch_size=self.batch_size, drop_last=True, shuffle=True, pin_memory=True, collate_fn=dense_collate_fn, num_workers=self.num_workers)
 
     @override
     def val_dataloader(self):
@@ -50,5 +49,4 @@ class MNISTSuperpixelDataModule(pl.LightningDataModule):
 
     @override
     def test_dataloader(self):
-        return DataLoader(self.mnist_test, batch_size=self.batch_size, num_workers=self.num_workers,
-                          collate_fn=dense_collate_fn)
+        return DataLoader(self.mnist_test, batch_size=self.batch_size, num_workers=self.num_workers, collate_fn=dense_collate_fn)
