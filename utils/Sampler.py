@@ -1,15 +1,12 @@
-import itertools
 import random
 from typing import List
 import torch
 import numpy as np
 from lightning import LightningModule
-from numpy.random import random_sample
-from torch_geometric.data import Data, Batch
-from torchmetrics.image import sam
+from torch_geometric.data import Batch
+from utils.graphs import generate_random_graph
+from utils.data import DenseData, densify_data
 
-from utils.graphs import generate_random_graph, concat_batches, densify, to_sparse_list
-from DataModules.MNISTSuperpixelDataModule import DenseData, densify_data
 
 class Sampler:
 
@@ -116,8 +113,6 @@ class Sampler:
 
         x = x.detach()
         adj = adj.detach()
-        # tmp = to_sparse_list(x, adj, mask, batch.ptr)
-        # batch = Batch.from_data_list(tmp)
 
 
         # Reactivate gradients for parameters for training

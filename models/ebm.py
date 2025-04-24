@@ -3,15 +3,14 @@ from torch import Tensor
 from torch.nn import CrossEntropyLoss
 from torchmetrics import Accuracy
 
-from DataModules.MNISTSuperpixelDataModule import densify_data
 from models.graph_models import GCN_Dense
 from utils.Sampler import Sampler
 import lightning as pl
 import torch.optim as optim
+
+from utils.data import densify_data
 from utils.graphs import generate_random_graph
 from torch_geometric.data import Batch
-from utils.graphs import densify
-
 
 class DeepEnergyModel(pl.LightningModule):
 
