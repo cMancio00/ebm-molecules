@@ -5,8 +5,9 @@ from torch_geometric.data import Data, Batch
 import numpy as np
 import cv2
 from torch_geometric.utils import dense_to_sparse
-from torch import device
 from torch_geometric.utils import to_dense_batch, to_dense_adj
+
+from utils.data import DenseData
 
 
 def concat_batches(batches: list[Batch]) -> Batch:
@@ -35,11 +36,11 @@ def to_sparse_list(x, adj, mask, ptr) -> List[Data]:
     return data
 
 
-def superpixels_to_2d_image(rec: Data, scale: int = 30, edge_width: int = 1) -> np.ndarray:
-    pos = (rec.pos.clone() * scale).int()
+def superpixels_to_image(rec: DenseData, scale: int = 30, edge_width: int = 1) -> np.ndarray:
+    pos = (rec.x[:,1:].clone() * scale).int()
 
     image = np.zeros((scale * 26, scale * 26, 1), dtype=np.uint8)
-    for (color, (x, y)) in zip(rec.x, pos):
+    for (color, (x, y)) in zip(rec.x[:,0], pos):
         x0, y0 = int(x), int(y)
         x1, y1 = x0 - scale, y0 - scale
 
@@ -48,7 +49,8 @@ def superpixels_to_2d_image(rec: Data, scale: int = 30, edge_width: int = 1) -> 
 
         cv2.rectangle(image, (x0, y0), (x1, y1), color, -1)
 
-    for node_ix_0, node_ix_1 in rec.edge_index.T:
+    edge_index = dense_to_sparse(rec.adj)[0]
+    for node_ix_0, node_ix_1 in edge_index.T:
         x0, y0 = list(map(int, pos[node_ix_0]))
         x1, y1 = list(map(int, pos[node_ix_1]))
 
