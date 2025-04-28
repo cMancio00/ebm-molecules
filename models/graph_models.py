@@ -63,7 +63,6 @@ class GCN_Dense(pl.LightningModule):
         self.conv1 = DenseGCNConv(in_channels, hidden_channels)
         self.conv2 = DenseGCNConv(hidden_channels, hidden_channels)
         self.conv3 = DenseGCNConv(hidden_channels, hidden_channels)
-        self.pool1 = DMoNPooling([hidden_channels, hidden_channels], ceil(0.5 * 75))
         self.lin1 = Linear(hidden_channels, hidden_channels)
         self.lin2 = Linear(hidden_channels, out_channels)
 
@@ -71,9 +70,9 @@ class GCN_Dense(pl.LightningModule):
         x = self.conv1(x, adj, mask).relu()
         x = self.conv2(x, adj, mask).relu()
         x = self.conv3(x, adj, mask).relu()
-        _, x, adj, _, _, _ = self.pool1(x, adj, mask)
+
         x = x.mean(dim=1)
-        x = self.lin1(x)
+        x = self.lin1(x).relu()
         return self.lin2(x)
 
     def configure_optimizers(self):
