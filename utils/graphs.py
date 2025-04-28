@@ -15,7 +15,7 @@ def concat_batches(batches: list[Batch]) -> Batch:
         list(itertools.chain(*[batch.to_data_list() for batch in batches]))
     )
 
-def generate_random_graph(num_nodes: int = 75, num_edges: int = 1500, device: torch.device = torch.device('cpu')) -> Data:
+def generate_random_graph(num_nodes: int = 75, num_edges: int = 500, device: torch.device = torch.device('cpu')) -> Data:
     edges: torch.Tensor = torch.randint(0, num_nodes, (num_edges, 2), dtype=torch.long)
     x: torch.Tensor = torch.rand((num_nodes, 1))
     pos: torch.Tensor = torch.rand((num_nodes, 2)) * 28

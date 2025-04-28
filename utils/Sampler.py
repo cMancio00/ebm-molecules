@@ -101,15 +101,16 @@ class Sampler:
             adj.retain_grad()
             energy = -model(x, adj, mask)[torch.arange(labels.size(0)), labels]
             energy.sum().backward(retain_graph=True)
-            x.grad.data.clamp_(-0.03, 0.03)
-            adj.grad.data.clamp_(-0.03, 0.03)
+            x.grad.data.clamp_(-0.1, 0.1)
+            adj.grad.data.clamp_(-1, 1)
             x = x - (step_size * x.grad) + noise_x
             adj = adj - (step_size * adj.grad) + noise_adj
             adj = (adj + torch.transpose(adj, 1, 2))/2
+            adj.data.clamp_(0,1)
+            adj.data.round_()
 
             x.data[:,:,0].clamp_(0, 1)
             x.data[:, :, 1:].clamp_(0, 28)
-            adj.data.clamp_(0,1)
 
         x = x.detach()
         adj = adj.detach()
