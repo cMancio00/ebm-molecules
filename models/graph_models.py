@@ -17,7 +17,7 @@ def normalized_cut_2d(edge_index, pos):
     edge_attr = norm(pos[row] - pos[col], p=2, dim=1)
     return normalized_cut(edge_index, edge_attr, num_nodes=pos.size(0))
 
-class MoNet(pl.LightningModule):
+class MoNet(nn.Module):
     def __init__(self, kernel_size: int =3, out_dim: int = 10):
         super(MoNet, self).__init__()
         self.conv1 = GMMConv(1, 32, dim=2, kernel_size=kernel_size)
@@ -45,18 +45,7 @@ class MoNet(pl.LightningModule):
         x = F.dropout(x, training=self.training)
         return F.log_softmax(self.fc2(x), dim=1)
 
-    def configure_optimizers(self):
-        optimizer = optim.Adam(self.parameters())
-        scheduler = optim.lr_scheduler.StepLR(optimizer, 1, gamma=0.97)
-        return [optimizer], [scheduler]
-
-    def training_step(self, batch, batch_idx):
-        # loss = CrossEntropyLoss()(self(batch), batch.y)
-        loss = F.nll_loss(self(batch), batch.y)
-        self.log('CrossEntropy loss', loss)
-        return loss
-
-class GCN_Dense(pl.LightningModule):
+class GCN_Dense(nn.Module):
     def __init__(self, in_channels, hidden_channels, out_channels):
         super().__init__()
 
@@ -74,23 +63,3 @@ class GCN_Dense(pl.LightningModule):
         x = x.mean(dim=1)
         x = self.lin1(x).relu()
         return self.lin2(x)
-
-    def configure_optimizers(self):
-        optimizer = optim.Adam(self.parameters())
-        scheduler = optim.lr_scheduler.StepLR(optimizer, 1, gamma=0.97)
-        return [optimizer], [scheduler]
-
-    def training_step(self, batch, batch_idx):
-        out = self(batch.data.x, batch.data.adj, batch.data.mask)
-        loss = F.cross_entropy(out, batch.y)
-        self.log('CrossEntropy', loss)
-        return loss
-
-    def validation_step(self, batch, batch_idx):
-        total_correct = 0
-        out = self(batch.data.x, batch.data.adj, batch.data.mask)
-        pred = out.argmax(dim=-1)
-        total_correct += int((pred == batch.y).sum())
-        loss = total_correct / len(batch)
-        self.log('Accuracy', loss)
-        return loss
