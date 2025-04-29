@@ -52,8 +52,8 @@ class DeepEnergyModel(pl.LightningModule):
         negative_energy = negative_energy[torch.arange(labels.size(0)),labels]
         generative_loss: Tensor = (negative_energy - positive_energy).mean()
 
-        # penalty = self.hparams.alpha * (positive_energy ** 2 + negative_energy ** 2).mean()
-        loss: Tensor = generative_loss #+ cross_entropy + penalty
+        penalty = self.hparams.alpha * (positive_energy ** 2 + negative_energy ** 2).mean()
+        loss: Tensor = generative_loss + cross_entropy + penalty
 
         self.log('loss', loss)
         self.log('loss_contrastive_divergence', generative_loss)

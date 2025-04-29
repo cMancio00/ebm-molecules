@@ -1,16 +1,15 @@
 from torch import nn, norm
-from torch.nn import CrossEntropyLoss
-from torch_geometric.nn import Linear
+from torch_geometric.nn import Linear, DMoNPooling
 from torch_geometric.nn.dense import DenseGCNConv
-from torch_geometric.nn import GCNConv
 from torch_geometric.nn import max_pool, global_mean_pool
 from torch_geometric.nn.conv import GMMConv
 from torch_geometric.nn.pool import graclus
 import torch.nn.functional as F
 import torch_geometric.transforms as T
-from torch_geometric.utils import normalized_cut, to_dense_batch, to_dense_adj
+from torch_geometric.utils import normalized_cut
 import lightning as pl
 import torch.optim as optim
+from math import ceil
 
 
 def normalized_cut_2d(edge_index, pos):
@@ -64,14 +63,17 @@ class GCN_Dense(pl.LightningModule):
         self.conv1 = DenseGCNConv(in_channels, hidden_channels)
         self.conv2 = DenseGCNConv(hidden_channels, hidden_channels)
         self.conv3 = DenseGCNConv(hidden_channels, hidden_channels)
-        self.lin = Linear(hidden_channels, out_channels)
+        self.lin1 = Linear(hidden_channels, hidden_channels)
+        self.lin2 = Linear(hidden_channels, out_channels)
 
     def forward(self, x, adj, mask):
         x = self.conv1(x, adj, mask).relu()
         x = self.conv2(x, adj, mask).relu()
         x = self.conv3(x, adj, mask).relu()
-        x = x.sum(dim=1)
-        return self.lin(x)
+
+        x = x.mean(dim=1)
+        x = self.lin1(x).relu()
+        return self.lin2(x)
 
     def configure_optimizers(self):
         optimizer = optim.Adam(self.parameters())
