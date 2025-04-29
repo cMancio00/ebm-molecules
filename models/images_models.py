@@ -1,6 +1,4 @@
-import torch
 from torch import nn, sigmoid
-import lightning as pl
 
 class Swish(nn.Module):
 
@@ -8,7 +6,7 @@ class Swish(nn.Module):
         return x * sigmoid(x)
     
 
-class Small_CNN(pl.LightningModule):
+class Small_CNN(nn.Module):
     
     def __init__(self, hidden_features=32, out_dim=10, **kwargs):
         super().__init__()
