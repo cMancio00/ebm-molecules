@@ -9,7 +9,6 @@ from lightning import Trainer, LightningModule
 import torchvision
 from torch.nn.utils.parametrizations import spectral_norm
 from torch.nn.utils.parametrize import is_parametrized
-from utils.Sampler import Sampler
 from utils.graphs import superpixels_to_image
 import numpy as np
 from torchvision.utils import make_grid
@@ -55,7 +54,7 @@ class GenerateCallback(pl.Callback):
         start_imgs = start_imgs * 2 - 1
         torch.set_grad_enabled(True)
         labels : Tensor = torch.arange(10) #torch.randint(0,10,(10,))
-        imgs_per_step = Sampler.generate_samples(pl_module.cnn, start_imgs, lables=labels ,steps=self.num_steps, step_size=10, return_tensors_each_step=True)
+        imgs_per_step = GraphSampler.generate_samples(pl_module.cnn, start_imgs, lables=labels, steps=self.num_steps, step_size=10, return_tensors_each_step=True)
         torch.set_grad_enabled(False)
         pl_module.train()
         return imgs_per_step

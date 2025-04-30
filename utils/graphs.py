@@ -1,40 +1,140 @@
 import itertools
+from dataclasses import dataclass
 from typing import Tuple, List
 import torch
-from torch_geometric.data import Data, Batch
+import torch as th
+from torch._C._nn import pad
+from torch.utils.data import Dataset
+from torch_geometric.data import Data, Batch, Dataset as pygDataset
 import numpy as np
 import cv2
-from torch_geometric.utils import dense_to_sparse
+from torch_geometric.utils import dense_to_sparse, to_dense_adj
 from torch_geometric.utils import to_dense_batch, to_dense_adj
 
-from utils.data import DenseData
+# TODO: consider store dense repr ons disk.
+# TODO: we discard all the data attributes (except x, adj, node_mask) -> probably is enough for all datasets we use
 
+@dataclass
+class DenseData:
+    x: th.tensor
+    adj: th.tensor
+    mask: th.tensor
 
-def concat_batches(batches: list[Batch]) -> Batch:
-    return Batch.from_data_list(
-        list(itertools.chain(*[batch.to_data_list() for batch in batches]))
+    def __repr__(self):
+        return (
+            f"DenseData("
+            f"x={tuple(self.x.shape)}, "
+            f"adj={tuple(self.adj.shape)}, "
+            f"mask={tuple(self.mask.shape)})"
+        )
+
+    def __getitem__(self, index):
+        return DenseData(
+            self.x[index],
+            self.adj[index],
+            self.mask[index]
+        )
+
+    def __add__(self, other):
+        if not isinstance(other, DenseData):
+            raise ValueError("Both objects need to be of type DenseData")
+        #TODO: check for concatenation conditions
+        x_concat = th.cat((self.x, other.x), dim=0)
+        adj_concat = th.cat((self.adj, other.adj), dim=0)
+        mask_concat = th.cat((self.mask, other.mask), dim=0)
+        return DenseData(x_concat, adj_concat, mask_concat)
+
+    def __len__(self):
+        return self.x.shape[0]
+
+@dataclass
+class DenseElement:
+    data: DenseData
+    y: th.Tensor
+
+    def __repr__(self):
+        return (
+            f"DenseElement("
+            f"{self.data.__repr__()}, "
+            f"y={tuple(self.y.shape)})"
+        )
+
+    def __len__(self):
+        return self.data.__len__()
+
+def dense_collate_fn(batch: List[Tuple[DenseData, th.Tensor]]) -> DenseElement:
+    max_num_nodes = max([el[0].x.shape[0] for el in batch])
+    x_list = []
+    adj_list = []
+    mask_list = []
+    y_list = []
+
+    for data, y in batch:
+        n_nodes = data.x.shape[0]
+        x = pad(data.x, (data.x.ndim - 1) * (0, 0) + (0, max_num_nodes - n_nodes)).unsqueeze(0)
+        adj = pad(data.adj, (data.adj.ndim - 2) * (0, 0) + 2 * (0, max_num_nodes - n_nodes)).unsqueeze(0)
+        mask = pad(data.mask, (0, max_num_nodes - n_nodes)).unsqueeze(0)
+
+        x_list.append(x)
+        adj_list.append(adj)
+        mask_list.append(mask)
+        y_list.append(y)
+
+    x_stacked = th.cat(x_list, dim=0)
+    adj_stacked = th.cat(adj_list, dim=0)
+    mask_stacked = th.cat(mask_list, dim=0)
+    y_stacked = th.cat(y_list, dim=0)
+
+    return DenseElement(
+            DenseData(x_stacked, adj_stacked, mask_stacked),
+            y_stacked
     )
 
-def generate_random_graph(num_nodes: int = 75, num_edges: int = 500, device: torch.device = torch.device('cpu')) -> Data:
-    edges: torch.Tensor = torch.randint(0, num_nodes, (num_edges, 2), dtype=torch.long)
-    x: torch.Tensor = torch.rand((num_nodes, 1))
-    pos: torch.Tensor = torch.rand((num_nodes, 2)) * 28
-    return Data(x=x, edge_index=edges.t().contiguous(), pos=pos).coalesce().to(device)
+class DenseGraphDataset(Dataset):
 
-def densify(data: Batch) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    x, mask = to_dense_batch(data.x, data.batch)
-    adj = to_dense_adj(data.edge_index, data.batch)
-    return x, adj, mask
+    """
+    This class is wrapper of a pygDataset.
+    """
 
-def to_sparse_list(x, adj, mask, ptr) -> List[Data]:
-    # Maybe it is possible to not use ptr
-    data = []
-    for i in range(1, len(ptr)):
-        sparse_x = x[mask][ptr[i-1]:ptr[i]]
-        edge_index = dense_to_sparse(adj[i-1], mask)[0]
-        data.append(Data(x=sparse_x, edge_index=edge_index))
-    return data
+    def __init__(self, pyg_dataset: pygDataset):
+        self._pyg_dataset = pyg_dataset
 
+        self.data = []
+        self.targets = []
+        for el in self._pyg_dataset:
+            el_dict = el.to_dict()
+            x = el_dict.pop('x')
+            adj = to_dense_adj(
+                el_dict.pop('edge_index'),
+                edge_attr=el_dict.pop('edge_attr', None)
+            ).squeeze(0)
+            mask = th.ones(
+                x.shape[0],
+                device=x.device,
+                dtype=th.bool
+            )
+
+            y = el_dict.pop('y')
+
+            # we ignore all the other keys
+            # remaining_keys = list(sorted(el_dict.keys()))
+            # for k in remaining_keys:
+                # Concatenate remaining attributes on x
+            #    x = th.cat((x, el_dict[k]), dim=1)
+
+            self.data.append(
+                DenseData(
+                    x,
+                    adj,
+                    mask)
+            )
+            self.targets.append(y)
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        return self.data[idx], self.targets[idx]
 
 def superpixels_to_image(rec: DenseData, scale: int = 30, edge_width: int = 1) -> np.ndarray:
     pos = (rec.x[:,1:].clone() * scale).int()
@@ -61,3 +161,4 @@ def superpixels_to_image(rec: DenseData, scale: int = 30, edge_width: int = 1) -
 
         cv2.line(image, (x0, y0), (x1, y1), 125, edge_width)
     return image
+

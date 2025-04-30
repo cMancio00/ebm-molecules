@@ -1,7 +1,8 @@
 import torch
-from models.ebm import DeepEnergyModel
+from ebm import DeepEnergyModel
+from data_modules import MNISTDataModule
 from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
-from utils.Callback import GenerateCallback, SamplerCallback, SpectralNormalizationCallback
+from utils.callbacks import GenerateCallback
 from lightning.pytorch.cli import LightningCLI
 from lightning.pytorch.loggers import TensorBoardLogger
 
@@ -11,14 +12,20 @@ torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 
 
-class MyLightningCLI(LightningCLI):
-    def add_arguments_to_parser(self, parser):
-        parser.link_arguments("model.batch_size", "data.init_args.batch_size")
+# TODO: this can be generalised for all images datasets
+class MNISTLightningCLI(LightningCLI):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(model_class=DeepEnergyModel, datamodule_class=MNISTDataModule, *args, **kwargs)
+
+    def after_instantiate_classes(self) -> None:
+        self.model.sampler.num_classes = self.datamodule.num_classes
+        self.model.sampler.img_shape = self.datamodule.img_shape
+
 
 def cli_main():
 
-    cli = MyLightningCLI(
-        DeepEnergyModel,
+    cli = MNISTLightningCLI(
         seed_everything_default=42,
         trainer_defaults={
             'max_epochs': 61,
@@ -26,15 +33,17 @@ def cli_main():
             'callbacks': [
                 ModelCheckpoint(save_top_k=1,auto_insert_metric_name=True,
                                 monitor='val_contrastive_divergence'),
-                GenerateCallback(every_n_epochs=5, num_steps=1024, vis_steps=10),
-                SamplerCallback(every_n_epochs=5),
+                #GenerateCallback(every_n_epochs=5, num_steps=1024, vis_steps=10),
+                #SamplerCallback(every_n_epochs=5),
                 # SpectralNormalizationCallback(),
                 LearningRateMonitor("epoch")
             ]
         }
+
     )
 
     cli.trainer.logger = TensorBoardLogger("lightning_logs")
+
 
 if __name__ == '__main__':
     cli_main()

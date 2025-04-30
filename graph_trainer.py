@@ -1,19 +1,18 @@
-from DataModules import MNISTSuperpixelDataModule
-from models.ebm import DeepEnergyModel
+from data_modules import MNISTSuperpixelDataModule
+from ebm.ebm import DeepEnergyModel
 from lightning import Trainer
 from lightning.pytorch.callbacks import ModelCheckpoint
-from utils.Callback import BufferSamplerCallback
+from utils.callbacks import BufferSamplerCallback
 from torch import set_float32_matmul_precision
 from lightning.pytorch.loggers import TensorBoardLogger
 from lightning.pytorch import seed_everything
-from models.graph_models import GCN_Dense
 
 set_float32_matmul_precision('high')
 
 seed_everything(0)
 batch_size: int = 128
 data_module = MNISTSuperpixelDataModule(
-    num_workers=15,
+    num_workers=0,
     batch_size=batch_size,
     filter_target=[0,1]
 )

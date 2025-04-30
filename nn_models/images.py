@@ -6,7 +6,7 @@ class Swish(nn.Module):
         return x * sigmoid(x)
     
 
-class Small_CNN(nn.Module):
+class SmallCNN(nn.Module):
     
     def __init__(self, hidden_features=32, out_dim=10, **kwargs):
         super().__init__()

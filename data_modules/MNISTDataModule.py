@@ -21,6 +21,8 @@ class MNISTDataModule(pl.LightningDataModule):
         self.mnist_train = None
         self.mnist_val = None
         self.mnist_test = None
+        self.num_classes = 10
+        self.img_shape = (1, 28, 28)
 
     @override
     def prepare_data(self):
@@ -31,12 +33,11 @@ class MNISTDataModule(pl.LightningDataModule):
     def setup(self, stage):
         if stage == "fit":
             mnist_full = MNIST(self.data_dir, train=True, download=True, transform=self.transform)
-            # to_take = mnist_full.targets == 0
-            # mnist_full.data = mnist_full.data[to_take]
-            # mnist_full.targets = mnist_full.targets[to_take]
+            #to_take = mnist_full.targets < 2
+            #mnist_full.data = mnist_full.data[to_take]
+            #mnist_full.targets = mnist_full.targets[to_take]
             self.mnist_train, self.mnist_val = random_split(
-                # TODO:
-                # - Parametrize lengths from CLI
+                # TODO: Parametrize lengths from CLI
                 mnist_full, [11/12, 1/12]
             )
         if stage == "test":

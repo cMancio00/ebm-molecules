@@ -1,16 +1,17 @@
+
 import random
 from typing import List
 import torch
 import numpy as np
 from lightning import LightningModule
 from torch_geometric.data import Batch
-from utils.graphs import generate_random_graph
-from utils.data import DenseData, densify_data
+from utils.graphs import DenseData
+from .base import SamplerWithBuffer
 
 
-class Sampler:
+class GraphSampler(SamplerWithBuffer):
 
-    def __init__(self, model: LightningModule, sample_size: int, max_len: int = 8192):
+    def __init__(self, sample_size: int, max_len: int = 8192, node_channels=1, edge_channels=1):
         """
         Inputs:
             model - Neural network to use for modeling E_theta
@@ -18,19 +19,16 @@ class Sampler:
             max_len - Maximum number of data points to keep in the buffer
         """
         super().__init__()
-        self.model: LightningModule = model
         self.sample_size: int = sample_size
         self.max_len: int = max_len
+        self.node_channels = node_channels
+        self.edge_channels = edge_channels
         self.buffer = None
 
     def init_buffer(self):
-        self.buffer: DenseData = densify_data(
-            Batch.from_data_list(
-                [generate_random_graph(device=self.model.device) for _ in range(self.sample_size)]
-            )
-        )
+        self.buffer: DenseData = self.generate_random_samples()
 
-    def sample_new_tensor(self, labels: torch.Tensor, steps: int = 60, step_size: float = 10.0) -> DenseData:
+    def get_negative_samples(self, labels: torch.Tensor, steps: int = 60, step_size: float = 10.0) -> DenseData:
         """
         Function for getting a new batch of sampled tensors via MCMC.
         Inputs:
@@ -44,18 +42,18 @@ class Sampler:
         old_tensors: DenseData = self.buffer[sampled_indexes]
 
         if not len(sampled_indexes) == self.sample_size:
-            new_rand_tensors: DenseData = densify_data(
-                Batch.from_data_list(
-                    [generate_random_graph(device=self.model.device) for _ in range(self.sample_size - len(sampled_indexes))]
-                )
-            )
+            new_rand_tensors: DenseData = self.generate_random_samples()
+                #Batch.from_data_list(
+                #    [generate_random_graph(device=self.model.device) for _ in range(self.sample_size - len(sampled_indexes))]
+                #)
+            #)
             mcmc_starting_tensors: DenseData = new_rand_tensors + old_tensors
 
         else:
             mcmc_starting_tensors: DenseData = old_tensors
 
         # Perform MCMC sampling
-        mcmc_samples = Sampler.generate_samples(self.model, mcmc_starting_tensors, labels, steps=steps, step_size=step_size)
+        mcmc_samples = GraphSampler.generate_samples(self.model, mcmc_starting_tensors, labels, steps=steps, step_size=step_size)
         # mcmc_samples: DenseData = mcmc_starting_tensors
         self.buffer = (mcmc_samples + self.buffer)[:self.max_len]
         return mcmc_samples
@@ -126,4 +124,10 @@ class Sampler:
 
         return DenseData(x, adj, mask)
 
+    def generate_random_samples(num_samples, num_nodes: int = 75, num_edges: int = 500,
+                            device: torch.device = torch.device('cpu')) -> DenseData:
+        edges: torch.Tensor = torch.randint(0, num_nodes, (num_edges, 2), dtype=torch.long)
+        x: torch.Tensor = torch.rand((num_nodes, 1))
+        pos: torch.Tensor = torch.rand((num_nodes, 2)) * 28
+        return Data(x=x, edge_index=edges.t().contiguous(), pos=pos).coalesce().to(device)
 

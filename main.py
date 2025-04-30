@@ -1,13 +1,12 @@
 import torch
-import matplotlib.pyplot as plt
 import lightning as pl
 import os
-from models.ebm import DeepEnergyModel
-from utils.Callback import GenerateCallback
+from ebm.ebm import DeepEnergyModel
+from utils.callbacks import GenerateCallback
 import torchvision
 import matplotlib.pyplot as plt
-from DataModules import MNISTDataModule
-from utils.Sampler import Sampler
+from data_modules import MNISTDataModule
+from samplers import GraphSampler
 
 torch.set_float32_matmul_precision('high')
 
@@ -50,7 +49,7 @@ def loop_generation(model: DeepEnergyModel, training_energy: float, model_versio
                 total_steps = num_steps
                 generated = (torch.rand((1,1,28,28)) * 2 - 1).to(model.device)
                 while True:
-                    generated = Sampler.generate_samples(model.cnn, generated, num_steps, model.mcmc_learning_rate)
+                    generated = GraphSampler.generate_samples(model.cnn, generated, num_steps, model.mcmc_learning_rate)
                     energy = -model.cnn(generated).item()
                     if energy < training_energy:
                         print(f"\nSample energy: {energy:e} less then Training Energy: {training_energy:e}, VALID")
