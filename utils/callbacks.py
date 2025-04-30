@@ -13,6 +13,7 @@ from utils.graphs import superpixels_to_image
 import numpy as np
 from torchvision.utils import make_grid
 
+
 class GenerateCallback(pl.Callback):
 
     def __init__(self, num_steps: int=256, vis_steps: int=10, every_n_epochs: int=5, tensors_to_generate : int = 10):
@@ -58,10 +59,11 @@ class GenerateCallback(pl.Callback):
         torch.set_grad_enabled(False)
         pl_module.train()
         return imgs_per_step
-    
+
+
 class BufferSamplerCallback(pl.Callback):
 
-    def __init__(self, num_samples=64, num_rows=4, every_n_epochs=5):
+    def __init__(self, num_samples=64, every_n_epochs=5):
         """Samples from the MCMC buffer and save the tensors to the Tensorboard
 
         Args:
@@ -71,7 +73,6 @@ class BufferSamplerCallback(pl.Callback):
         super().__init__()
         self.num_samples = num_samples
         self.every_n_epochs = every_n_epochs
-        self.num_rows = num_rows
 
     def on_train_epoch_end(self, trainer: Trainer, pl_module: LightningModule):
         """Called on training epoch end. Samples from the MCMC buffer and saves the tensors to the Tensorboard
@@ -81,20 +82,17 @@ class BufferSamplerCallback(pl.Callback):
             pl_module (LightningModule): _description_
         """
         if trainer.current_epoch % self.every_n_epochs == 0:
-            sampled_indexes: List[int] = random.choices(
-                range(len(pl_module.sampler.buffer)),
-                k=self.num_samples
-            )
-            batch = pl_module.sampler.buffer[sampled_indexes]
-
-            col = (len(batch) // self.num_rows)
             images: List[Tensor] = []
-            for i in range(len(batch[:(col * self.num_rows)])):
-                image = superpixels_to_image(batch[i])
-                images.append(
-                    torch.from_numpy(image).permute(2, 1, 0)
+            for curr_buffer in pl_module.sampler.buffer:
+                sampled_indexes: List[int] = random.choices(
+                    range(len(curr_buffer)),
+                    k=self.num_samples
                 )
-            grid = make_grid(images, nrow=self.num_rows)
+
+                for j in range(self.num_samples):
+                    images.append(curr_buffer[sampled_indexes[j]].cpu().squeeze(0))
+
+            grid = make_grid(images, nrow=pl_module.sampler.num_classes)
 
             trainer.logger.experiment.add_image("Samples from MCMC buffer", grid, global_step=trainer.current_epoch)
 

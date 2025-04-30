@@ -2,7 +2,7 @@ import torch
 from ebm import DeepEnergyModel
 from data_modules import MNISTDataModule
 from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
-from utils.callbacks import GenerateCallback
+from utils.callbacks import BufferSamplerCallback
 from lightning.pytorch.cli import LightningCLI
 from lightning.pytorch.loggers import TensorBoardLogger
 
@@ -33,6 +33,7 @@ def cli_main():
             'callbacks': [
                 ModelCheckpoint(save_top_k=1,auto_insert_metric_name=True,
                                 monitor='val_contrastive_divergence'),
+                BufferSamplerCallback(every_n_epochs=5, num_samples=10),
                 #GenerateCallback(every_n_epochs=5, num_steps=1024, vis_steps=10),
                 #SamplerCallback(every_n_epochs=5),
                 # SpectralNormalizationCallback(),

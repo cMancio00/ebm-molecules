@@ -11,7 +11,7 @@ from torch import nn
 class DeepEnergyModel(pl.LightningModule):
 
     def __init__(self, nn_model: nn.Module, sampler: SamplerWithBuffer,
-                 mcmc_steps: int = 60, mcmc_learning_rate: float = 1.0, # hparams for the mcmc sampling
+                 mcmc_steps: int = 50, mcmc_learning_rate: float = 1.0, # hparams for the mcmc sampling
                  alpha=0.1, lr=1e-4, beta1=0.0):  # hparams for the optimizer
         super().__init__()
         self.save_hyperparameters()
@@ -45,8 +45,8 @@ class DeepEnergyModel(pl.LightningModule):
         self.log('loss', loss)
         self.log('loss_contrastive_divergence', generative_loss)
         # self.log('penalty', penalty)
-        # self.log('Positive_phase_energy', positive_energy.mean())
-        # self.log('Negative_phase_energy', negative_energy.mean())
+        self.log('Positive_phase_energy', positive_energy.mean())
+        self.log('Negative_phase_energy', negative_energy.mean())
         self.log("Cross Entropy", cross_entropy)
         return loss
     
@@ -55,7 +55,7 @@ class DeepEnergyModel(pl.LightningModule):
         positive_energy: Tensor = self.nn_model(x)
         batch_size, num_classes = positive_energy.shape
 
-        random_x = self.sampler.generate_random_samples(labels.shape[0], collate=True)
+        random_x = self.sampler.generate_samples(self.nn_model, labels)
         negative_energy: Tensor = self.nn_model(random_x)
 
         cross_entropy: Tensor = F.cross_entropy(positive_energy, labels)

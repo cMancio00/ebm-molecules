@@ -1,5 +1,4 @@
 model:
-  mcmc_steps: 10
   sampler:
     class_path: samplers.ImageSampler
   nn_model:
