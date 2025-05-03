@@ -11,7 +11,7 @@ from torch import nn
 class DeepEnergyModel(pl.LightningModule):
 
     def __init__(self, nn_model: nn.Module, sampler: SamplerWithBuffer,
-                 mcmc_steps: int = 50, mcmc_learning_rate: float = 1.0, # hparams for the mcmc sampling
+                 mcmc_steps: int = 10, mcmc_learning_rate: float = 1.0, # hparams for the mcmc sampling
                  alpha=0.1, lr=1e-4, beta1=0.0):  # hparams for the optimizer
         super().__init__()
         self.save_hyperparameters()
@@ -25,25 +25,29 @@ class DeepEnergyModel(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         x, labels = batch
+        batch_size = x.size(0)
+        device = x.device
+        idx = torch.arange(batch_size, device=device)
+
+        # positive phase
         positive_energy: Tensor = self.nn_model(x)
-
-        generated_samples = self.sampler.get_negative_samples(model=self.nn_model, labels=labels,
-                                                              steps=self.hparams.mcmc_steps,
-                                                              step_size=self.hparams.mcmc_learning_rate)
-        negative_energy: Tensor = self.nn_model(generated_samples)
-
         cross_entropy: Tensor = F.cross_entropy(positive_energy, labels)
+        positive_energy = positive_energy[idx, labels]
 
-        # TODO: what about MSE item by item?
-        positive_energy = positive_energy[torch.arange(labels.size(0)), labels]
-        negative_energy = negative_energy[torch.arange(labels.size(0)), labels]
-        generative_loss: Tensor = (negative_energy - positive_energy).mean()
+        # negative phase
+        neg_samples, neg_labels = self.sampler.get_negative_batch(model=self.nn_model, batch_size=batch_size,
+                                                                  steps=self.hparams.mcmc_steps,
+                                                                  step_size=self.hparams.mcmc_learning_rate)
+        negative_energy: Tensor = self.nn_model(neg_samples)[idx, neg_labels]
 
+        cd_generative_loss: Tensor = (negative_energy - positive_energy).mean()
         penalty = self.hparams.alpha * (positive_energy ** 2 + negative_energy ** 2).mean()
-        loss: Tensor = generative_loss + cross_entropy + penalty
 
+        loss: Tensor = cd_generative_loss + cross_entropy + penalty
+
+        # log the values
         self.log('loss', loss)
-        self.log('loss_contrastive_divergence', generative_loss)
+        self.log('loss_contrastive_divergence', cd_generative_loss)
         # self.log('penalty', penalty)
         self.log('Positive_phase_energy', positive_energy.mean())
         self.log('Negative_phase_energy', negative_energy.mean())
@@ -55,7 +59,7 @@ class DeepEnergyModel(pl.LightningModule):
         positive_energy: Tensor = self.nn_model(x)
         batch_size, num_classes = positive_energy.shape
 
-        random_x = self.sampler.generate_samples(self.nn_model, labels)
+        random_x = self.sampler.generate_batch(self.nn_model, labels)
         negative_energy: Tensor = self.nn_model(random_x)
 
         cross_entropy: Tensor = F.cross_entropy(positive_energy, labels)
@@ -71,7 +75,6 @@ class DeepEnergyModel(pl.LightningModule):
         self.log("Accuracy Validation", accuracy(pred, labels, task='multiclass', num_classes=num_classes))
 
         return loss
-
 
     def on_load_checkpoint(self, checkpoint):
         state_dict = checkpoint["state_dict"]

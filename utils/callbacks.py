@@ -1,3 +1,4 @@
+import math
 import random
 from typing import List
 import matplotlib.pyplot as plt
@@ -72,6 +73,7 @@ class BufferSamplerCallback(pl.Callback):
         """
         super().__init__()
         self.num_samples = num_samples
+        self.num_rows = int(math.sqrt(num_samples))
         self.every_n_epochs = every_n_epochs
 
     def on_train_epoch_end(self, trainer: Trainer, pl_module: LightningModule):
@@ -82,17 +84,13 @@ class BufferSamplerCallback(pl.Callback):
             pl_module (LightningModule): _description_
         """
         if trainer.current_epoch % self.every_n_epochs == 0:
-            images: List[Tensor] = []
-            for curr_buffer in pl_module.sampler.buffer:
-                sampled_indexes: List[int] = random.choices(
-                    range(len(curr_buffer)),
-                    k=self.num_samples
-                )
+            idx_to_plot = random.sample(range(len(pl_module.sampler.buffer)), self.num_samples)
 
-                for j in range(self.num_samples):
-                    images.append(curr_buffer[sampled_indexes[j]].cpu().squeeze(0))
+            #idx = np.random.randint(0, len(pl_module.sampler.buffer))
+            #images, _ = pl_module.sampler.buffer[idx]
+            images = [pl_module.sampler.buffer[i][0] for i in idx_to_plot]
 
-            grid = make_grid(images, nrow=pl_module.sampler.num_classes)
+            grid = make_grid(images, nrow=self.num_rows)
 
             trainer.logger.experiment.add_image("Samples from MCMC buffer", grid, global_step=trainer.current_epoch)
 

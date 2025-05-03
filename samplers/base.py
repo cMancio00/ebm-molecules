@@ -1,8 +1,8 @@
 from torch import nn
-from typing import List, Any, Union
+from typing import List, Any, Tuple, Union
 import torch
 import numpy as np
-from collections import deque
+import random
 
 
 class SamplerWithBuffer(nn.Module):
@@ -10,11 +10,11 @@ class SamplerWithBuffer(nn.Module):
     Base class for all samplers
     """
 
-    def __init__(self, max_len_buffer: int = 1000):
+    def __init__(self, max_len_buffer: int = 100):
         super().__init__()
         self.max_len_buffer = max_len_buffer
         self.num_classes = None
-        self.buffer = None
+        self.buffer = []
         self.register_buffer('_fake_p', torch.zeros(1))  # fake buffer just to get the device
 
     @property
@@ -23,49 +23,36 @@ class SamplerWithBuffer(nn.Module):
 
     def init_buffer(self):
         self.buffer = []
-        for i in range(self.num_classes):
-            self.buffer.append(self.generate_random_samples(self.max_len_buffer//10, collate=False))
 
-    def get_negative_samples(self, model: nn.Module, labels: torch.Tensor,
-                             steps: int = 60, step_size: float = 10.0) -> Any:
+    def get_negative_batch(self, model: nn.Module, batch_size: int,
+                           steps: int = 60, step_size: float = 10.0) -> Tuple[Any, torch.Tensor]:
         """
         Function for getting a new batch of sampled tensors via MCMC.
         Inputs:
             steps - Number of iterations in the MCMC.
             step_size - Learning rate nu in the algorithm above
         """
-        np_labels = labels.cpu().numpy()
-        num_samples = labels.shape[0]
-        mcmc_starting_tensors = []
-        mcmc_random_tensors = self.generate_random_samples(num_samples, collate=False)
-        idx_rand = 0
-        for i in range(num_samples):
-            s = np.random.binomial(n=1, p=1-0.05)
-            if s == 1:
-                # take from buffer
-                idx = np.random.randint(0, len(self.buffer[np_labels[i]]))
-                mcmc_starting_tensors.append(self.buffer[np_labels[i]][idx])
-            else:
-                # generate from random samples
-                mcmc_starting_tensors.append(mcmc_random_tensors[idx_rand])
-                idx_rand += 1
+        n_to_sample = min(np.random.binomial(n=batch_size, p=1 - 0.05), len(self.buffer))
+        sampled_indexes: List[int] = random.sample(range(len(self.buffer)), n_to_sample)
 
-        # Perform MCMC sampling
-        mcmc_starting_tensors = self.collate_fn(mcmc_starting_tensors)
-        mcmc_samples = self.generate_samples(model, labels, mcmc_starting_tensors, steps=steps, step_size=step_size)
+        random_elements: List[Tuple[Any, torch.Tensor]] = self.generate_random_batch(batch_size-len(sampled_indexes),
+                                                                                     collate=False)
+        neg_x, neg_y = self.collate_fn(random_elements + [self.buffer[i] for i in sampled_indexes])
+
+        mcmc_x = self.generate_batch(model, labels=neg_y, starting_x=neg_x, steps=steps, step_size=step_size)
 
         # save in the buffer
-        for i in range(num_samples):
-            self.buffer[np_labels[i]].insert(0, mcmc_samples[i:i+1])
+        for i in range(batch_size):
+            self.buffer.append((mcmc_x[i], neg_y[i]))
 
-        for i in range(len(self.buffer)):
-            self.buffer[i] = self.buffer[i][:self.max_len_buffer]
+        if len(self.buffer) > self.max_len_buffer:
+            # take the last ones
+            self.buffer = self.buffer[-self.max_len_buffer:]
 
-        return mcmc_samples
+        return mcmc_x, neg_y
 
-    @staticmethod
-    def generate_samples(model: nn.Module, labels: torch.Tensor,  start_point: Any = None, steps: int = 60,
-                         step_size: float = 1.0) -> Any:
+    def generate_batch(self, model: nn.Module, labels: torch.Tensor, starting_x: Any = None, steps: int = 60,
+                       step_size: float = 1.0) -> Tuple[Any, torch.Tensor]:
         """
         Function for generating new tensors via MCMC, given a model for :math:`E_{\\theta}`
         The MCMC algorith perform the following update:
@@ -74,7 +61,44 @@ class SamplerWithBuffer(nn.Module):
             x_{k+1} = x_{k} - \\varepsilon \\nabla_{x} E_{\\theta} + \\omega
 
         :param model: Neural network to use for modeling :math:`E_{\theta}`
-        :param start_point: Batch of PyG Data to start from for sampling
+        :param starting_x: Batch of PyG Data to start from for sampling
+        :param labels: Labels for conditional generation
+        :param steps: Number of iterations in the MCMC algorithm.
+        :param step_size: Learning rate :math:`\varepsilon`
+        :return: Sampled Batch from the Energy distribution
+        """
+        # save model state
+        is_training = model.training
+        model.eval()
+        for p in model.parameters():
+            p.requires_grad = False
+
+        had_gradients_enabled = torch.is_grad_enabled()
+        torch.set_grad_enabled(True)
+
+        generated_batch = self._generate_batch(model, labels, starting_x, steps, step_size)
+
+        # Reactivate gradients for parameters for training
+        for p in model.parameters():
+            p.requires_grad = True
+        model.train(is_training)
+
+        # Reset gradient calculation to setting before this function
+        torch.set_grad_enabled(had_gradients_enabled)
+
+        return generated_batch
+
+    def _generate_batch(self, model: nn.Module, labels: torch.Tensor, starting_x: Any = None, steps: int = 60,
+                       step_size: float = 1.0) -> Tuple[Any, torch.Tensor]:
+        """
+        Function for generating new tensors via MCMC, given a model for :math:`E_{\\theta}`
+        The MCMC algorith perform the following update:
+
+        .. math::
+            x_{k+1} = x_{k} - \\varepsilon \\nabla_{x} E_{\\theta} + \\omega
+
+        :param model: Neural network to use for modeling :math:`E_{\theta}`
+        :param starting_x: Batch of PyG Data to start from for sampling
         :param labels: Labels for conditional generation
         :param steps: Number of iterations in the MCMC algorithm.
         :param step_size: Learning rate :math:`\varepsilon`
@@ -82,8 +106,9 @@ class SamplerWithBuffer(nn.Module):
         """
         raise NotImplementedError()
 
-    def generate_random_samples(self, num_samples: int, collate=True) -> Any:
+    def generate_random_batch(self, batch_size: int, device=None, collate: bool = True) -> (
+            Union[List[Tuple[Any, torch.Tensor]], Tuple[Any, torch.Tensor]]):
         raise NotImplementedError()
 
-    def collate_fn(self, data_list: List[Any]) -> Any:
+    def collate_fn(self, data_list: List[Tuple[Any, torch.Tensor]]) -> Tuple[Any, torch.Tensor]:
         raise NotImplementedError()
