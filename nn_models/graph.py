@@ -55,7 +55,8 @@ class GCN_Dense(nn.Module):
         self.lin1 = Linear(hidden_channels, hidden_channels)
         self.lin2 = Linear(hidden_channels, out_channels)
 
-    def forward(self, x, adj, mask):
+    def forward(self, in_data):
+        x, adj, mask = in_data.x, in_data.adj, in_data.mask
         x = self.conv1(x, adj, mask).relu()
         x = self.conv2(x, adj, mask).relu()
         x = self.conv3(x, adj, mask).relu()

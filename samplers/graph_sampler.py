@@ -1,66 +1,25 @@
-
+from torch import nn
 import random
-from typing import List
+from typing import List, Tuple, Any, Union
 import torch
 import numpy as np
 from lightning import LightningModule
-from torch_geometric.data import Batch
-from utils.graphs import DenseData
+from utils.graph import DenseData, dense_collate_fn
 from .base import SamplerWithBuffer
+import torchvision.transforms.functional as FT
 
 
 class GraphSampler(SamplerWithBuffer):
 
-    def __init__(self, sample_size: int, max_len: int = 8192, node_channels=1, edge_channels=1):
-        """
-        Inputs:
-            model - Neural network to use for modeling E_theta
-            sample_size - Batch size of the samples
-            max_len - Maximum number of data points to keep in the buffer
-        """
-        super().__init__()
-        self.sample_size: int = sample_size
-        self.max_len: int = max_len
-        self.node_channels = node_channels
-        self.edge_channels = edge_channels
-        self.buffer = None
+    def __init__(self, min_num_nodes=10, max_num_nodes=40, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.num_node_features = None
+        self.num_edge_features = None
+        self.max_num_nodes = max_num_nodes
+        self.min_num_nodes = min_num_nodes
 
-    def init_buffer(self):
-        self.buffer: DenseData = self.generate_random_samples()
-
-    def get_negative_samples(self, labels: torch.Tensor, steps: int = 60, step_size: float = 10.0) -> DenseData:
-        """
-        Function for getting a new batch of sampled tensors via MCMC.
-        Inputs:
-            steps - Number of iterations in the MCMC.
-            step_size - Learning rate nu in the algorithm above
-        """
-        sampled_indexes: List[int] = random.sample(
-            range(len(self.buffer)),
-            np.random.binomial(self.sample_size, 1 - 0.05)
-        )
-        old_tensors: DenseData = self.buffer[sampled_indexes]
-
-        if not len(sampled_indexes) == self.sample_size:
-            new_rand_tensors: DenseData = self.generate_random_samples()
-                #Batch.from_data_list(
-                #    [generate_random_graph(device=self.model.device) for _ in range(self.sample_size - len(sampled_indexes))]
-                #)
-            #)
-            mcmc_starting_tensors: DenseData = new_rand_tensors + old_tensors
-
-        else:
-            mcmc_starting_tensors: DenseData = old_tensors
-
-        # Perform MCMC sampling
-        mcmc_samples = GraphSampler.generate_samples(self.model, mcmc_starting_tensors, labels, steps=steps, step_size=step_size)
-        # mcmc_samples: DenseData = mcmc_starting_tensors
-        self.buffer = (mcmc_samples + self.buffer)[:self.max_len]
-        return mcmc_samples
-
-    @staticmethod
-    def generate_samples(model: LightningModule, batch: DenseData, labels: torch.Tensor,
-                         steps: int = 60, step_size: float = 1.0) -> DenseData:
+    def _generate_batch(self, model: nn.Module, labels: torch.Tensor, starting_x: Any, steps: int = 60,
+                        step_size: float = 1.0) -> Any:
         """
         Function for generating new tensors via MCMC, given a model for :math:`E_{\\theta}`
         The MCMC algorith perform the following update:
@@ -69,65 +28,71 @@ class GraphSampler(SamplerWithBuffer):
             x_{k+1} = x_{k} - \\varepsilon \\nabla_{x} E_{\\theta} + \\omega
 
         :param model: Neural network to use for modeling :math:`E_{\theta}`
-        :param batch: Batch of PyG Data to start from for sampling
+        :param starting_x: Batch of PyG Data to start from for sampling
         :param labels: Labels for conditional generation
         :param steps: Number of iterations in the MCMC algorithm.
         :param step_size: Learning rate :math:`\varepsilon`
         :return: Sampled Batch from the Energy distribution
         """
+        sample: DenseData = starting_x
+        sample.x.requires_grad_()
 
-        # Save the training state of the model ad activate only gradient for the input
-        is_training = model.training
-        model.eval()
-        for p in model.parameters():
-            p.requires_grad = False
-        had_gradients_enabled = torch.is_grad_enabled()
+        # apply gaussian blurring?
+        # sample.adj = FT.gaussian_blur(sample.adj, 3)
+        sample.adj.requires_grad_()
 
-        x, adj, mask = batch.x, batch.adj, batch.mask
-        x.requires_grad_()
-        adj.requires_grad_()
-
-        noise_x = torch.randn(x.shape, device=model.device)
-        noise_adj = torch.randn(adj.shape, device=model.device)
+        noise_x = torch.randn(sample.x.shape, device=labels.device)
+        noise_adj = torch.randn(sample.adj.shape, device=labels.device)
+        idx = torch.arange(labels.size(0), device=labels.device)
 
         # MCMC
         # batch.requires_grad = True
         for i in range(steps):
             noise_x.normal_(0, 0.005)
             noise_adj.normal_(0, 0.005)
-            x.retain_grad()
-            adj.retain_grad()
-            energy = -model(x, adj, mask)[torch.arange(labels.size(0)), labels]
-            energy.sum().backward(retain_graph=True)
-            x.grad.data.clamp_(-0.1, 0.1)
-            adj.grad.data.clamp_(-1, 1)
-            x = x - (step_size * x.grad) + noise_x
-            adj = adj - (step_size * adj.grad) + noise_adj
-            adj = (adj + torch.transpose(adj, 1, 2))/2
-            adj.data.clamp_(0,1)
-            adj.data.round_()
+            energy = -model(sample)[idx, labels]
+            energy.sum().backward()
+            sample.x.grad.data.clamp_(-0.1, 0.1)
+            sample.adj.grad.data.clamp_(-1, 1)
 
-            x.data[:,:,0].clamp_(0, 1)
-            x.data[:, :, 1:].clamp_(0, 28)
+            sample.x.data.add_(- (step_size * sample.x.grad) + noise_x)
+            sample.adj.data.add_(- (step_size * sample.adj.grad) + noise_adj)
 
-        x = x.detach()
-        adj = adj.detach()
+            sample.x.grad.zero_()
+            sample.adj.grad.zero_()
 
+            with torch.no_grad():
+                sample.adj = (sample.adj + torch.transpose(sample.adj, 1, 2)) / 2
+                sample.adj.data.clamp_(0, 1)
+                sample.adj.data.round_()
+            sample.adj.requires_grad_()
 
-        # Reactivate gradients for parameters for training
-        for p in model.parameters():
-            p.requires_grad = True
-        model.train(is_training)
+        sample.detach_()
 
-        # Reset gradient calculation to setting before this function
-        torch.set_grad_enabled(had_gradients_enabled)
+        return sample
 
-        return DenseData(x, adj, mask)
+    def generate_random_batch(self, batch_size: int, device=None, collate: bool = True) -> (
+            Union[List[Tuple[Any, torch.Tensor]], Tuple[Any, torch.Tensor]]):
 
-    def generate_random_samples(num_samples, num_nodes: int = 75, num_edges: int = 500,
-                            device: torch.device = torch.device('cpu')) -> DenseData:
-        edges: torch.Tensor = torch.randint(0, num_nodes, (num_edges, 2), dtype=torch.long)
-        x: torch.Tensor = torch.rand((num_nodes, 1))
-        pos: torch.Tensor = torch.rand((num_nodes, 2)) * 28
-        return Data(x=x, edge_index=edges.t().contiguous(), pos=pos).coalesce().to(device)
+        if device is None:
+            device = self.device
 
+        num_nodes = torch.randint(10, self.max_num_nodes+1, size=(batch_size,)).tolist()
+        data_list = []
+        y = torch.randint(0, self.num_classes, size=(batch_size,), device=device)
+        for i, n in enumerate(num_nodes):
+            # TODO: is there a better way to generate random graphs? what about always using max_nodes?
+            x = 2*torch.randn((n, self.num_node_features), device=device)
+            A = torch.randint(0, 2, (n, n), device=device).to(torch.float)
+            adj = A.T @ A
+            mask = torch.ones((n,), dtype=torch.bool, device=device)
+            data_list.append((DenseData(x, adj, mask), y[i]))
+
+        if collate:
+            return self.collate_fn(data_list)
+        else:
+            return data_list
+
+    def collate_fn(self, data_list: List[Tuple[Any, torch.Tensor]]) -> Tuple[Any, torch.Tensor]:
+
+        return dense_collate_fn(data_list)

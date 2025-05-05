@@ -10,14 +10,8 @@ class ImageSampler(SamplerWithBuffer):
         super().__init__(*args, **kwargs)
         self.img_shape = None
 
-    def _generate_batch(self, model: nn.Module, labels: torch.Tensor, starting_x: Any = None, steps: int = 60,
-                       step_size: float = 1.0) -> Tuple[Any, torch.Tensor]:
-
-        batch_size = labels.shape[0]
-        device = labels.device
-
-        if starting_x is None:
-            starting_x, _ = self.generate_random_batch(batch_size, device)
+    def _generate_batch(self, model: nn.Module, labels: torch.Tensor, starting_x: Any, steps: int = 60,
+                       step_size: float = 1.0) -> Any:
 
         x = starting_x
         x.detach_()
@@ -29,12 +23,11 @@ class ImageSampler(SamplerWithBuffer):
         # MCMC
         for i in range(steps):
             noise_x.normal_(0, 0.005)
-            x.data.add_(noise_x.data)
             x.data.clamp_(min=-1.0, max=1.0)
             energy = -model(x)[idx, labels]
             energy.sum().backward()
             x.grad.data.clamp_(-0.1, 0.1)
-            x.data.add_(- (step_size * x.grad))
+            x.data.add_(- (step_size * x.grad) + noise_x)
             x.grad.zero_()
             x.data.clamp_(min=-1.0, max=1.0)
 

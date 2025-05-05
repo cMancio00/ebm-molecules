@@ -1,0 +1,11 @@
+model:
+  sampler:
+    class_path: samplers.GraphSampler
+  nn_model:
+    class_path: nn_models.graphs.GCN_Dense
+    init_args:
+      in_channels: 1
+      hidden_channels: 10
+      out_channels: 3
+data:
+  num_workers: 0

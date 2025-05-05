@@ -25,8 +25,8 @@ class DeepEnergyModel(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         x, labels = batch
-        batch_size = x.size(0)
-        device = x.device
+        batch_size = labels.size(0)
+        device = labels.device
         idx = torch.arange(batch_size, device=device)
 
         # positive phase

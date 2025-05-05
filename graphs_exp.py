@@ -1,6 +1,6 @@
 import torch
 from ebm import DeepEnergyModel
-from data_modules import MNISTDataModule
+from data_modules import SBMDataModule
 from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
 from utils.callbacks import BufferSamplerCallback
 from lightning.pytorch.cli import LightningCLI
@@ -12,28 +12,29 @@ torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 
 
-# TODO: this can be generalised for all images datasets
-class MNISTLightningCLI(LightningCLI):
+# TODO: this can be generalised for all graphs datasets
+class GraphLightningCLI(LightningCLI):
 
     def __init__(self, *args, **kwargs):
-        super().__init__(model_class=DeepEnergyModel, datamodule_class=MNISTDataModule, *args, **kwargs)
+        super().__init__(model_class=DeepEnergyModel, datamodule_class=SBMDataModule, *args, **kwargs)
 
     def after_instantiate_classes(self) -> None:
         self.model.sampler.num_classes = self.datamodule.num_classes
-        self.model.sampler.img_shape = self.datamodule.img_shape
+        self.model.sampler.num_node_features = self.datamodule.num_node_features
+        self.model.sampler.num_edge_features = self.datamodule.num_edge_features
 
 
 def cli_main():
 
-    cli = MNISTLightningCLI(
+    cli = GraphLightningCLI(
         seed_everything_default=42,
         trainer_defaults={
-            'max_epochs': 61,
+            'max_epochs': 100,
             'gradient_clip_val': 0.1,
             'callbacks': [
                 ModelCheckpoint(save_top_k=1,auto_insert_metric_name=True,
                                 monitor='val_contrastive_divergence'),
-                BufferSamplerCallback(every_n_epochs=5, num_samples=10),
+                #BufferSamplerCallback(every_n_epochs=5),
                 #GenerateCallback(every_n_epochs=5, num_steps=1024, vis_steps=10),
                 #SamplerCallback(every_n_epochs=5),
                 # SpectralNormalizationCallback(),
@@ -43,7 +44,7 @@ def cli_main():
 
     )
 
-    cli.trainer.logger = TensorBoardLogger("lightning_logs")
+    cli.trainer.logger = TensorBoardLogger("graph_logs")
 
 
 if __name__ == '__main__':

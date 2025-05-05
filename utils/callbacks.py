@@ -10,7 +10,7 @@ from lightning import Trainer, LightningModule
 import torchvision
 from torch.nn.utils.parametrizations import spectral_norm
 from torch.nn.utils.parametrize import is_parametrized
-from utils.graphs import superpixels_to_image
+from utils.graph import superpixels_to_image
 import numpy as np
 from torchvision.utils import make_grid
 

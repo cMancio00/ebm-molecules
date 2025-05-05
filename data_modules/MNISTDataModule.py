@@ -33,9 +33,8 @@ class MNISTDataModule(pl.LightningDataModule):
     def setup(self, stage):
         if stage == "fit":
             mnist_full = MNIST(self.data_dir, train=True, download=True, transform=self.transform)
-            #to_take = mnist_full.targets < 2
-            #mnist_full.data = mnist_full.data[to_take]
-            #mnist_full.targets = mnist_full.targets[to_take]
+            mnist_full.data = mnist_full.data[:1000]
+            mnist_full.targets = mnist_full.targets[:1000]
             self.mnist_train, self.mnist_val = random_split(
                 # TODO: Parametrize lengths from CLI
                 mnist_full, [11/12, 1/12]

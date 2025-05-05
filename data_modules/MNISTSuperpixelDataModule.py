@@ -2,7 +2,7 @@ from typing import override, List
 import lightning as pl
 from torch_geometric.datasets import MNISTSuperpixels
 from torch.utils.data import DataLoader
-from utils.graphs import dense_collate_fn, DenseGraphDataset
+from utils.graph import dense_collate_fn, DenseGraphDataset
 
 
 class MNISTSuperpixelDataModule(pl.LightningDataModule):

@@ -35,34 +35,16 @@ class DenseData:
             self.mask[index]
         )
 
-    def __add__(self, other):
-        if not isinstance(other, DenseData):
-            raise ValueError("Both objects need to be of type DenseData")
-        #TODO: check for concatenation conditions
-        x_concat = th.cat((self.x, other.x), dim=0)
-        adj_concat = th.cat((self.adj, other.adj), dim=0)
-        mask_concat = th.cat((self.mask, other.mask), dim=0)
-        return DenseData(x_concat, adj_concat, mask_concat)
-
     def __len__(self):
         return self.x.shape[0]
 
-@dataclass
-class DenseElement:
-    data: DenseData
-    y: th.Tensor
+    def detach_(self):
+        self.x = self.x.detach()
+        self.adj = self.adj.detach()
+        self.mask = self.mask.detach()
 
-    def __repr__(self):
-        return (
-            f"DenseElement("
-            f"{self.data.__repr__()}, "
-            f"y={tuple(self.y.shape)})"
-        )
 
-    def __len__(self):
-        return self.data.__len__()
-
-def dense_collate_fn(batch: List[Tuple[DenseData, th.Tensor]]) -> DenseElement:
+def dense_collate_fn(batch: List[Tuple[DenseData, th.Tensor]]) -> Tuple[DenseData, th.Tensor]:
     max_num_nodes = max([el[0].x.shape[0] for el in batch])
     x_list = []
     adj_list = []
@@ -78,17 +60,15 @@ def dense_collate_fn(batch: List[Tuple[DenseData, th.Tensor]]) -> DenseElement:
         x_list.append(x)
         adj_list.append(adj)
         mask_list.append(mask)
-        y_list.append(y)
+        y_list.append(y.unsqueeze(0))
 
     x_stacked = th.cat(x_list, dim=0)
     adj_stacked = th.cat(adj_list, dim=0)
     mask_stacked = th.cat(mask_list, dim=0)
     y_stacked = th.cat(y_list, dim=0)
 
-    return DenseElement(
-            DenseData(x_stacked, adj_stacked, mask_stacked),
-            y_stacked
-    )
+    return DenseData(x_stacked, adj_stacked, mask_stacked), y_stacked
+
 
 class DenseGraphDataset(Dataset):
 
@@ -125,16 +105,17 @@ class DenseGraphDataset(Dataset):
             self.data.append(
                 DenseData(
                     x,
-                    adj,
+                    adj.to(torch.float),
                     mask)
             )
-            self.targets.append(y)
+            self.targets.append(y.squeeze(0))
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, idx):
         return self.data[idx], self.targets[idx]
+
 
 def superpixels_to_image(rec: DenseData, scale: int = 30, edge_width: int = 1) -> np.ndarray:
     pos = (rec.x[:,1:].clone() * scale).int()

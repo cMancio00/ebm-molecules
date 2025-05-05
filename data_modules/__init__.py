@@ -1,4 +1,3 @@
-from data_modules.MNISTDataModule import MNISTDataModule
+from .MNISTDataModule import MNISTDataModule
 from .MNISTSuperpixelDataModule import MNISTSuperpixelDataModule
-
-__all__ = ["MNISTDataModule", 'MNISTSuperpixelDataModule']
+from .SBMDataModule import SBMDataModule

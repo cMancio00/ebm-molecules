@@ -37,6 +37,7 @@ class SamplerWithBuffer(nn.Module):
 
         random_elements: List[Tuple[Any, torch.Tensor]] = self.generate_random_batch(batch_size-len(sampled_indexes),
                                                                                      collate=False)
+
         neg_x, neg_y = self.collate_fn(random_elements + [self.buffer[i] for i in sampled_indexes])
 
         mcmc_x = self.generate_batch(model, labels=neg_y, starting_x=neg_x, steps=steps, step_size=step_size)
@@ -52,7 +53,7 @@ class SamplerWithBuffer(nn.Module):
         return mcmc_x, neg_y
 
     def generate_batch(self, model: nn.Module, labels: torch.Tensor, starting_x: Any = None, steps: int = 60,
-                       step_size: float = 1.0) -> Tuple[Any, torch.Tensor]:
+                       step_size: float = 1.0) -> Any:
         """
         Function for generating new tensors via MCMC, given a model for :math:`E_{\\theta}`
         The MCMC algorith perform the following update:
@@ -76,6 +77,13 @@ class SamplerWithBuffer(nn.Module):
         had_gradients_enabled = torch.is_grad_enabled()
         torch.set_grad_enabled(True)
 
+
+        batch_size = labels.shape[0]
+        device = labels.device
+
+        if starting_x is None:
+            starting_x, _ = self.generate_random_batch(batch_size, device, collate=True)
+
         generated_batch = self._generate_batch(model, labels, starting_x, steps, step_size)
 
         # Reactivate gradients for parameters for training
@@ -88,7 +96,7 @@ class SamplerWithBuffer(nn.Module):
 
         return generated_batch
 
-    def _generate_batch(self, model: nn.Module, labels: torch.Tensor, starting_x: Any = None, steps: int = 60,
+    def _generate_batch(self, model: nn.Module, labels: torch.Tensor, starting_x: Any, steps: int = 60,
                        step_size: float = 1.0) -> Tuple[Any, torch.Tensor]:
         """
         Function for generating new tensors via MCMC, given a model for :math:`E_{\\theta}`
