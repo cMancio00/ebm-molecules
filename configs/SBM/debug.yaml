@@ -1,11 +1,31 @@
+seed_everything: 42
 model:
   sampler:
     class_path: samplers.GraphSampler
   nn_model:
-    class_path: nn_models.graphs.GCN_Dense
+    class_path: nn_models.graph.GCN_Dense
     init_args:
       in_channels: 1
       hidden_channels: 10
       out_channels: 3
 data:
-  num_workers: 0
+  class_path: SBMDataModule
+  init_args:
+    name: easy
+    batch_size: 32
+    num_workers: 8
+
+trainer:
+  accelerator: auto
+  devices: auto
+  max_epochs: 3
+  log_every_n_steps: 10
+  gradient_clip_val: 0.1
+#  callbacks:
+#    classpath:
+  logger:
+    class_path: TensorBoardLogger
+    init_args:
+      save_dir: .
+      name: graph_logs
+  profiler: simple
