@@ -7,3 +7,4 @@ build
 **/.ipynb.checkpoints/
 /.virtual_documents/notebooks
 /notebooks/.ipynb_checkpoints
+.**
