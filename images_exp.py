@@ -28,7 +28,7 @@ def cli_main():
     cli = ImagesLightningCLI(
         seed_everything_default=42,
         trainer_defaults={
-            'max_epochs': 100,
+            'max_epochs': 101,
             'gradient_clip_val': 0.1,
             'callbacks': [
                 ModelCheckpoint(save_top_k=1,auto_insert_metric_name=True,
