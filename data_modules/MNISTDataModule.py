@@ -1,4 +1,3 @@
-from typing import override
 import lightning as pl
 import torch
 from tensorboard.data.proto.data_provider_pb2 import TensorData
@@ -25,12 +24,10 @@ class MNISTDataModule(pl.LightningDataModule):
         self.img_shape = (1, 28, 28)
         self.num_samples = num_samples
 
-    @override
     def prepare_data(self):
         MNIST(self.data_dir, train=True, download=True)
         MNIST(self.data_dir, train=False, download=True)
 
-    @override
     def setup(self, stage):
         if stage == "fit":
             mnist_full = MNIST(self.data_dir, train=True, download=True, transform=self.transform)
@@ -44,15 +41,12 @@ class MNISTDataModule(pl.LightningDataModule):
         if stage == "test":
             self.mnist_test = MNIST(self.data_dir, train=False, download=True, transform=self.transform)
 
-    @override
     def train_dataloader(self):
         return DataLoader(self.mnist_train, batch_size=self.batch_size, drop_last=True, shuffle=True, pin_memory=True,
                           num_workers=self.num_workers)
 
-    @override
     def val_dataloader(self):
         return DataLoader(self.mnist_val, batch_size=self.batch_size, num_workers=self.num_workers)
 
-    @override
     def test_dataloader(self):
         return DataLoader(self.mnist_test, batch_size=self.batch_size, num_workers=self.num_workers)

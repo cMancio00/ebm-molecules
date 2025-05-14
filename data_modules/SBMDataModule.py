@@ -1,4 +1,4 @@
-from typing import override, List, Union, Tuple
+from typing import List, Union, Tuple
 import lightning as pl
 import torch
 from torch.utils.data import DataLoader, random_split
@@ -91,26 +91,21 @@ class SBMDataModule(pl.LightningDataModule):
     def _get_full_dataset(self):
         return DenseGraphDataset(self.class_name(self.data_dir))
 
-    @override
     def prepare_data(self):
         self._get_full_dataset()
 
-    @override
     def setup(self, stage):
         dataset_full = self._get_full_dataset()
         self.data_train, self.data_val, self.data_test = random_split(dataset_full, [0.7, 0.2, 0.1])
 
-    @override
     def train_dataloader(self):
         return DataLoader(self.data_train, batch_size=self.batch_size, drop_last=True, shuffle=True, pin_memory=True,
                           collate_fn=dense_collate_fn, num_workers=self.num_workers)
 
-    @override
     def val_dataloader(self):
         return DataLoader(self.data_val, batch_size=self.batch_size, num_workers=self.num_workers,
                           collate_fn=dense_collate_fn)
 
-    @override
     def test_dataloader(self):
         return DataLoader(self.data_test, batch_size=self.batch_size, num_workers=self.num_workers,
                           collate_fn=dense_collate_fn)
