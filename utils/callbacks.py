@@ -10,6 +10,8 @@ from lightning import Trainer, LightningModule
 import torchvision
 from torch.nn.utils.parametrizations import spectral_norm
 from torch.nn.utils.parametrize import is_parametrized
+
+from samplers import GraphSampler, img_sampler
 from utils.graph import superpixels_to_image
 import numpy as np
 from torchvision.utils import make_grid
@@ -17,7 +19,7 @@ from torchvision.utils import make_grid
 
 class GenerateCallback(pl.Callback):
 
-    def __init__(self, num_steps: int=256, vis_steps: int=10, every_n_epochs: int=5, tensors_to_generate : int = 10):
+    def __init__(self, num_steps: int=1024, vis_steps: int=10, every_n_epochs: int=5, tensors_to_generate: int = 10):
         """Uses MCMC to sample tensors from the model and logs them in the Tensorboard at the end
         of training epochs.
 
@@ -44,22 +46,34 @@ class GenerateCallback(pl.Callback):
             pl_module (LightningModule): Model to use
         """
         if trainer.current_epoch % self.every_n_epochs == 0:
-            imgs = self.generate_imgs(pl_module)
-            step_size = self.num_steps // self.vis_steps
-            imgs_to_plot = imgs[step_size-1::step_size]
-            grid = torchvision.utils.make_grid(imgs_to_plot.reshape(-1, 1, 28, 28), nrow=imgs_to_plot.shape[0], normalize=True)
+            # imgs = self.generate_imgs(pl_module)
+            # step_size = self.num_steps // self.vis_steps
+            # imgs_to_plot = imgs[step_size-1::step_size]
+            imgs = pl_module.sampler.generate_batch(
+                model=pl_module.nn_model,
+                labels=torch.arange(10).to(pl_module.device),
+                steps=self.num_steps
+            )
+            grid = torchvision.utils.make_grid(imgs, nrow=10)
             trainer.logger.experiment.add_image(f"Generation during Training", grid, global_step=trainer.current_epoch)
 
-    def generate_imgs(self, pl_module: LightningModule):
-        pl_module.eval()
-        start_imgs = torch.rand((self.tensors_to_generate,) + tuple(pl_module.hparams["img_shape"])).to(pl_module.device)
-        start_imgs = start_imgs * 2 - 1
-        torch.set_grad_enabled(True)
-        labels : Tensor = torch.arange(10) #torch.randint(0,10,(10,))
-        imgs_per_step = GraphSampler.generate_samples(pl_module.cnn, start_imgs, lables=labels, steps=self.num_steps, step_size=10, return_tensors_each_step=True)
-        torch.set_grad_enabled(False)
-        pl_module.train()
-        return imgs_per_step
+    # def generate_imgs(self, pl_module: LightningModule):
+    #     pl_module.eval()
+    #     # start_imgs = torch.rand((self.tensors_to_generate,) + (1, 28, 28)).to(pl_module.device)
+    #     # start_imgs = start_imgs * 2 - 1
+    #     start_imgs, _ = pl_module.sampler.generate_random_batch(batch_size = self.tensors_to_generate)
+    #     torch.set_grad_enabled(True)
+    #     labels : Tensor = torch.arange(10).to(pl_module.device) #torch.randint(0,10,(10,))
+    #     # imgs_per_step = GraphSampler.generate_samples(pl_module.cnn, start_imgs, lables=labels, steps=self.num_steps, step_size=10, return_tensors_each_step=True)
+    #     imgs_per_step = pl_module.sampler._generate_batch(
+    #         model=pl_module.nn_model,
+    #         labels=labels,
+    #         starting_x=start_imgs,
+    #         steps=self.num_steps,
+    #     )
+    #     torch.set_grad_enabled(False)
+    #     pl_module.train()
+    #     return imgs_per_step
 
 
 class BufferSamplerCallback(pl.Callback):
