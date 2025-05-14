@@ -1,6 +1,0 @@
-alpha: 0.1
-batch_size: 64
-beta1: 0.0
-lr: 0.0001
-mcmc_learning_rate: 20
-mcmc_steps: 40

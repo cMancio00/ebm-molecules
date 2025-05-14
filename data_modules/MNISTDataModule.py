@@ -9,7 +9,7 @@ from torchvision.datasets import MNIST
 
 class MNISTDataModule(pl.LightningDataModule):
 
-    def __init__(self, data_dir: str = "./datasets", batch_size: int = 32, num_workers: int = 4):
+    def __init__(self, data_dir: str = "./datasets", batch_size: int = 32, num_workers: int = 4, num_samples=None):
         super().__init__()
         self.data_dir = data_dir
         self.batch_size = batch_size
@@ -23,6 +23,7 @@ class MNISTDataModule(pl.LightningDataModule):
         self.mnist_test = None
         self.num_classes = 10
         self.img_shape = (1, 28, 28)
+        self.num_samples = num_samples
 
     @override
     def prepare_data(self):
@@ -33,8 +34,9 @@ class MNISTDataModule(pl.LightningDataModule):
     def setup(self, stage):
         if stage == "fit":
             mnist_full = MNIST(self.data_dir, train=True, download=True, transform=self.transform)
-            # mnist_full.data = mnist_full.data[:1000]
-            # mnist_full.targets = mnist_full.targets[:1000]
+            if self.num_samples is not None:
+                mnist_full.data = mnist_full.data[:self.num_samples]
+                mnist_full.targets = mnist_full.targets[:self.num_samples]
             self.mnist_train, self.mnist_val = random_split(
                 # TODO: Parametrize lengths from CLI
                 mnist_full, [11/12, 1/12]
