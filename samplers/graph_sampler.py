@@ -18,8 +18,7 @@ class GraphSampler(SamplerWithBuffer):
         self.max_num_nodes = max_num_nodes
         self.min_num_nodes = min_num_nodes
 
-    def _generate_batch(self, model: nn.Module, labels: torch.Tensor, starting_x: Any, steps: int = 60,
-                        step_size: float = 1.0) -> Any:
+    def _MCMC_generation(self, model: nn.Module, steps: int, step_size: float, labels: torch.Tensor, starting_x: Any) -> Any:
         """
         Function for generating new tensors via MCMC, given a model for :math:`E_{\\theta}`
         The MCMC algorith perform the following update:
@@ -65,6 +64,7 @@ class GraphSampler(SamplerWithBuffer):
                 sample.adj = (sample.adj + torch.transpose(sample.adj, 1, 2)) / 2
                 sample.adj.data.clamp_(0, 1)
                 sample.adj.data.round_()
+
             sample.adj.requires_grad_()
 
         sample.detach_()
@@ -93,6 +93,17 @@ class GraphSampler(SamplerWithBuffer):
         else:
             return data_list
 
-    def collate_fn(self, data_list: List[Tuple[Any, torch.Tensor]]) -> Tuple[Any, torch.Tensor]:
-
+    @staticmethod
+    def collate_fn(data_list: List[Tuple[Any, torch.Tensor]]) -> Tuple[Any, torch.Tensor]:
         return dense_collate_fn(data_list)
+
+    @staticmethod
+    def plot_sample(s: DenseData) -> Any:
+        to_plot = s.adj  # has shape N x N x F
+        if to_plot.ndim == 2:
+            to_plot = to_plot.unsqueeze(2)  # add channel for the plot
+
+        if to_plot.shape[2] == 1:
+            return to_plot.permute(2, 0, 1)  # return F x N x N
+
+        raise ValueError('Cannot plot an adjacency matrix with vector features')

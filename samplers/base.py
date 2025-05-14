@@ -10,7 +10,7 @@ class SamplerWithBuffer(nn.Module):
     Base class for all samplers
     """
 
-    def __init__(self, max_len_buffer: int = 100):
+    def __init__(self, max_len_buffer: int):
         super().__init__()
         self.max_len_buffer = max_len_buffer
         self.num_classes = None
@@ -25,9 +25,9 @@ class SamplerWithBuffer(nn.Module):
         self.buffer = []
 
     def get_negative_batch(self, model: nn.Module, batch_size: int,
-                           steps: int = 60, step_size: float = 10.0) -> Tuple[Any, torch.Tensor]:
+                           steps: int, step_size: float) -> Tuple[Any, torch.Tensor]:
         """
-        Function for getting a new batch of sampled tensors via MCMC.
+        Function for getting a new batch of sampled tensors via MCMC and buffer.
         Inputs:
             steps - Number of iterations in the MCMC.
             step_size - Learning rate nu in the algorithm above
@@ -40,7 +40,7 @@ class SamplerWithBuffer(nn.Module):
 
         neg_x, neg_y = self.collate_fn(random_elements + [self.buffer[i] for i in sampled_indexes])
 
-        mcmc_x = self.generate_batch(model, labels=neg_y, starting_x=neg_x, steps=steps, step_size=step_size)
+        mcmc_x = self.MCMC_generation(model, steps=steps, step_size=step_size, labels=neg_y, starting_x=neg_x)
 
         # save in the buffer
         for i in range(batch_size):
@@ -52,8 +52,8 @@ class SamplerWithBuffer(nn.Module):
 
         return mcmc_x, neg_y
 
-    def generate_batch(self, model: nn.Module, labels: torch.Tensor, starting_x: Any = None, steps: int = 60,
-                       step_size: float = 1.0) -> Any:
+    def MCMC_generation(self, model: nn.Module, steps: int, step_size: float, labels: torch.Tensor,
+                        starting_x: Any = None) -> Any:
         """
         Function for generating new tensors via MCMC, given a model for :math:`E_{\\theta}`
         The MCMC algorith perform the following update:
@@ -84,7 +84,7 @@ class SamplerWithBuffer(nn.Module):
         if starting_x is None:
             starting_x, _ = self.generate_random_batch(batch_size, device, collate=True)
 
-        generated_batch = self._generate_batch(model, labels, starting_x, steps, step_size)
+        generated_batch = self._MCMC_generation(model, steps, step_size, labels, starting_x)
 
         # Reactivate gradients for parameters for training
         for p in model.parameters():
@@ -96,8 +96,8 @@ class SamplerWithBuffer(nn.Module):
 
         return generated_batch
 
-    def _generate_batch(self, model: nn.Module, labels: torch.Tensor, starting_x: Any, steps: int = 60,
-                       step_size: float = 1.0) -> Tuple[Any, torch.Tensor]:
+    def _MCMC_generation(self, model: nn.Module, steps: int, step_size: float, labels: torch.Tensor,
+                         starting_x: Any) -> Tuple[Any, torch.Tensor]:
         """
         Function for generating new tensors via MCMC, given a model for :math:`E_{\\theta}`
         The MCMC algorith perform the following update:
@@ -106,10 +106,10 @@ class SamplerWithBuffer(nn.Module):
             x_{k+1} = x_{k} - \\varepsilon \\nabla_{x} E_{\\theta} + \\omega
 
         :param model: Neural network to use for modeling :math:`E_{\theta}`
-        :param starting_x: Batch of PyG Data to start from for sampling
-        :param labels: Labels for conditional generation
         :param steps: Number of iterations in the MCMC algorithm.
         :param step_size: Learning rate :math:`\varepsilon`
+        :param labels: Labels for conditional generation
+        :param starting_x: Batch of PyG Data to start from for sampling
         :return: Sampled Batch from the Energy distribution
         """
         raise NotImplementedError()
@@ -118,5 +118,10 @@ class SamplerWithBuffer(nn.Module):
             Union[List[Tuple[Any, torch.Tensor]], Tuple[Any, torch.Tensor]]):
         raise NotImplementedError()
 
-    def collate_fn(self, data_list: List[Tuple[Any, torch.Tensor]]) -> Tuple[Any, torch.Tensor]:
+    @staticmethod
+    def collate_fn(data_list: List[Tuple[Any, torch.Tensor]]) -> Tuple[Any, torch.Tensor]:
         raise NotImplementedError()
+
+    @staticmethod
+    def plot_sample(s: Any) -> Any:
+        return s

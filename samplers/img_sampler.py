@@ -10,8 +10,7 @@ class ImageSampler(SamplerWithBuffer):
         super().__init__(*args, **kwargs)
         self.img_shape = None
 
-    def _generate_batch(self, model: nn.Module, labels: torch.Tensor, starting_x: Any, steps: int = 60,
-                       step_size: float = 1.0) -> Any:
+    def _MCMC_generation(self, model: nn.Module, steps: int, step_size: float, labels: torch.Tensor, starting_x: Any) -> Any:
 
         x = starting_x
         x.detach_()
@@ -45,6 +44,7 @@ class ImageSampler(SamplerWithBuffer):
         else:
             return [(rand_x[i], rand_y[i]) for i in range(batch_size)]
 
-    def collate_fn(self, data_list: List[Tuple[Any, torch.Tensor]]) -> Tuple[Any, torch.Tensor]:
+    @staticmethod
+    def collate_fn(data_list: List[Tuple[Any, torch.Tensor]]) -> Tuple[Any, torch.Tensor]:
         x_list, y_list = zip(*data_list)
         return torch.stack(x_list), torch.stack(y_list)

@@ -28,15 +28,9 @@ def cli_main():
     cli = ImagesLightningCLI(
         seed_everything_default=42,
         trainer_defaults={
-            'max_epochs': 100,
-            'gradient_clip_val': 0.1,
             'callbacks': [
                 ModelCheckpoint(save_top_k=1,auto_insert_metric_name=True,
                                 monitor='val_contrastive_divergence'),
-                BufferSamplerCallback(every_n_epochs=5),
-                #GenerateCallback(every_n_epochs=5, num_steps=1024, vis_steps=10),
-                #SamplerCallback(every_n_epochs=5),
-                # SpectralNormalizationCallback(),
                 LearningRateMonitor("epoch")
             ]
         }
