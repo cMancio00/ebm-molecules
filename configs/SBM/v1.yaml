@@ -20,7 +20,7 @@ model:
       hidden_channels: 10
       out_channels: 3
 data:
-  class_path: SBMDataModule
+  class_path: data_modules.SBMDataModule
   init_args:
     name: easy
     batch_size: 32
