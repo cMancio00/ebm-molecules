@@ -1,19 +1,12 @@
 import math
 import random
-from typing import List
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_agg import FigureCanvasAgg
 import torch
-from torch import Tensor
 import lightning as pl
 from lightning import Trainer, LightningModule
 import torchvision
 from torch.nn.utils.parametrizations import spectral_norm
 from torch.nn.utils.parametrize import is_parametrized
 
-from samplers import GraphSampler, img_sampler
-from utils.graph import superpixels_to_image, DenseData
-import numpy as np
 from torchvision.utils import make_grid
 
 
