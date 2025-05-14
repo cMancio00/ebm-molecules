@@ -1,10 +1,6 @@
-.venv
 datasets
-**/__pycache__
-.idea
+**/__*
+**/.*
 build
-*.egg-info
-**/.ipynb.checkpoints/
-/.virtual_documents/notebooks
-/notebooks/.ipynb_checkpoints
-.**
+**logs
+!.gitignore
