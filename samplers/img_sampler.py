@@ -21,11 +21,9 @@ class ImageSampler(SamplerWithBuffer):
 
         # MCMC
         for i in range(steps):
-            noise_x.normal_(0, 0.005)
-            x.data.clamp_(min=-1.0, max=1.0)
+            noise_x.normal_(0, 0.01)
             energy = -model(x)[idx, labels]
             energy.sum().backward()
-            x.grad.data.clamp_(-0.1, 0.1)
             x.data.add_(- (step_size * x.grad) + noise_x)
             x.grad.zero_()
             x.data.clamp_(min=-1.0, max=1.0)
