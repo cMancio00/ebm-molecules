@@ -15,7 +15,7 @@ class MNISTDataModule(pl.LightningDataModule):
         self.num_workers = num_workers
         self.transform = transforms.Compose([
             transforms.ToTensor(),
-            transforms.Normalize((0.5,), (0.5,))
+            transforms.Lambda(lambda x: 2*x - 1)
         ])
         self.mnist_train = None
         self.mnist_val = None
