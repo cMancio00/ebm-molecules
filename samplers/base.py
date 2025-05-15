@@ -122,6 +122,5 @@ class SamplerWithBuffer(nn.Module):
     def collate_fn(data_list: List[Tuple[Any, torch.Tensor]]) -> Tuple[Any, torch.Tensor]:
         raise NotImplementedError()
 
-    @staticmethod
-    def plot_sample(s: Any) -> Any:
+    def plot_sample(self, s: Any) -> Any:
         return s
