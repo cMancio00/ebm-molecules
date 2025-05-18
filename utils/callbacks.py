@@ -9,7 +9,6 @@ from torch.nn.utils.parametrize import is_parametrized
 
 from torchvision.utils import make_grid
 
-
 class GenerateCallback(pl.Callback):
 
     def __init__(self, n_plot_during_generation: int=10, every_n_epochs: int=5):

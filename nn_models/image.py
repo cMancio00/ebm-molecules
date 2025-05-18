@@ -1,11 +1,5 @@
 import torch
-from torch import nn, sigmoid
-
-class Swish(nn.Module):
-
-    def forward(self, x):
-        return x * sigmoid(x)
-    
+from torch import nn
 
 class SmallCNN(nn.Module):
 
@@ -20,19 +14,19 @@ class SmallCNN(nn.Module):
 
         conv_layers = nn.Sequential(
             nn.Conv2d(self.IN_SHAPE[0], c_hid1, kernel_size=5, stride=2, padding=4),
-            Swish(),
+            nn.SiLU(),
             nn.Conv2d(c_hid1, c_hid2, kernel_size=3, stride=2, padding=1),
-            Swish(),
+            nn.SiLU(),
             nn.Conv2d(c_hid2, c_hid3, kernel_size=3, stride=2, padding=1),
-            Swish(),
+            nn.SiLU(),
             nn.Conv2d(c_hid3, c_hid3, kernel_size=3, stride=2, padding=1),
-            Swish(),
+            nn.SiLU(),
             nn.Flatten()
         )
         fake_output = conv_layers(torch.randn(self.IN_SHAPE))
         dense_layers = nn.Sequential(
                 nn.Linear(fake_output.numel(), c_hid3),
-                Swish(),
+                nn.SiLU(),
                 nn.Linear(c_hid3, self.N_OUTPUTS)
         )
         self.net = conv_layers + dense_layers

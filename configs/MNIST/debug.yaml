@@ -33,6 +33,8 @@ trainer:
   callbacks:
     - class_path: utils.callbacks.BufferSamplerCallback
     - class_path: utils.callbacks.GenerateCallback
+      init_args:
+        num_steps: 256
   logger:
     class_path: TensorBoardLogger
     init_args:
