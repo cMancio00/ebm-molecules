@@ -44,7 +44,7 @@ class DeepEnergyModel(pl.LightningModule):
         cd_generative_loss: Tensor = (negative_energy - positive_energy).mean()
         penalty = self.hparams.alpha * (positive_energy ** 2 + negative_energy ** 2).mean()
 
-        loss: Tensor = cd_generative_loss + cross_entropy + penalty
+        loss: Tensor = cd_generative_loss + cross_entropy #+ penalty
 
         # log the values
         self.log('loss', loss, on_step=False, on_epoch=True, batch_size=batch_size)
