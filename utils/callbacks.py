@@ -1,21 +1,12 @@
 import math
 import random
-from typing import List
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_agg import FigureCanvasAgg
 import torch
-from torch import Tensor
 import lightning as pl
 from lightning import Trainer, LightningModule
 import torchvision
 from torch.nn.utils.parametrizations import spectral_norm
 from torch.nn.utils.parametrize import is_parametrized
-
-from samplers import GraphSampler, img_sampler
-from utils.graph import superpixels_to_image, DenseData
-import numpy as np
 from torchvision.utils import make_grid
-
 
 class GenerateCallback(pl.Callback):
 
@@ -50,6 +41,7 @@ class GenerateCallback(pl.Callback):
                                                                 step_size=pl_module.hparams.mcmc_learning_rate_gen,
                                                                 labels=torch.arange(num_classes).to(pl_module.device))
             imgs_to_plot = [pl_module.sampler.plot_sample(s) for s in samples_to_plot]
+
             grid = torchvision.utils.make_grid(imgs_to_plot, nrow=10)
             trainer.logger.experiment.add_image(f"Generation during Training", grid, global_step=trainer.current_epoch)
 
