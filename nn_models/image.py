@@ -1,10 +1,4 @@
-from torch import nn, sigmoid
-
-class Swish(nn.Module):
-
-    def forward(self, x):
-        return x * sigmoid(x)
-    
+from torch import nn
 
 class SmallCNN(nn.Module):
     
@@ -16,16 +10,16 @@ class SmallCNN(nn.Module):
 
         self.cnn_layers = nn.Sequential(
                 nn.Conv2d(1, c_hid1, kernel_size=5, stride=2, padding=4),
-                Swish(),
+                nn.SiLU(),
                 nn.Conv2d(c_hid1, c_hid2, kernel_size=3, stride=2, padding=1),
-                Swish(),
+                nn.SiLU(),
                 nn.Conv2d(c_hid2, c_hid3, kernel_size=3, stride=2, padding=1),
-                Swish(),
+                nn.SiLU(),
                 nn.Conv2d(c_hid3, c_hid3, kernel_size=3, stride=2, padding=1),
-                Swish(),
+                nn.SiLU(),
                 nn.Flatten(),
                 nn.Linear(c_hid3*4, c_hid3),
-                Swish(),
+                nn.SiLU(),
                 nn.Linear(c_hid3, out_dim)
         )
 
