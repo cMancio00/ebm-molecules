@@ -13,7 +13,7 @@ class DeepEnergyModel(pl.LightningModule):
     def __init__(self, nn_model: nn.Module, sampler: SamplerWithBuffer,
                  mcmc_steps_tr: int = 10, mcmc_learning_rate_tr: float = 1.0, # hparams for the mcmc sampling during training
                  mcmc_steps_gen: int = 10, mcmc_learning_rate_gen: float = 1.0,  # hparams for the mcmc sampling during validation
-                 alpha=0.1, lr=1e-4, beta1=0.0):  # hparams for the optimizer
+                 alpha_penalty=0.1, alpha_ce=1, lr=1e-4, beta1=0.0):  # hparams for the optimizer
         super().__init__()
         self.save_hyperparameters()
         self.nn_model = nn_model
@@ -42,9 +42,9 @@ class DeepEnergyModel(pl.LightningModule):
         negative_energy: Tensor = self.nn_model(neg_samples)[idx, neg_labels]
 
         cd_generative_loss: Tensor = (negative_energy - positive_energy).mean()
-        penalty = self.hparams.alpha * (positive_energy ** 2 + negative_energy ** 2).mean()
+        penalty = (positive_energy ** 2 + negative_energy ** 2).mean()
 
-        loss: Tensor = cd_generative_loss + cross_entropy #+ penalty
+        loss: Tensor = cd_generative_loss + self.hparams.alpha_ce * cross_entropy + self.hparams.alpha_penalty * penalty
 
         # log the values
         self.log('loss', loss, on_step=False, on_epoch=True, batch_size=batch_size)
@@ -54,30 +54,29 @@ class DeepEnergyModel(pl.LightningModule):
         self.log('Negative_phase_energy', negative_energy.mean(), on_step=False, on_epoch=True, batch_size=batch_size)
         self.log("Cross Entropy", cross_entropy, on_step=False, on_epoch=True, batch_size=batch_size)
         return loss
-    
+
     def validation_step(self, batch, batch_idx):
         x, labels = batch
         positive_energy: torch.Tensor = self.nn_model(x)
         batch_size, num_classes = positive_energy.shape
 
-        generated_x = self.sampler.MCMC_generation(self.nn_model, self.hparams.mcmc_steps_gen,
-                                                   self.hparams.mcmc_learning_rate_gen, labels)
-        negative_energy: Tensor = self.nn_model(generated_x)
+        #generated_x = self.sampler.MCMC_generation(self.nn_model, self.hparams.mcmc_steps_gen,
+        #                                           self.hparams.mcmc_learning_rate_gen, labels)
+        #negative_energy: Tensor = self.nn_model(generated_x)
 
         cross_entropy: Tensor = F.cross_entropy(positive_energy, labels)
         pred = positive_energy.argmax(dim=-1)
 
-        positive_energy = positive_energy[torch.arange(labels.size(0)), labels]
-        negative_energy = negative_energy[torch.arange(labels.size(0)), labels]
+        #positive_energy = positive_energy[torch.arange(labels.size(0)), labels]
+        #negative_energy = negative_energy[torch.arange(labels.size(0)), labels]
+        #loss: Tensor = (negative_energy - positive_energy).mean()
 
-        loss: Tensor = (negative_energy - positive_energy).mean()
-
-        self.log('val_contrastive_divergence', loss, batch_size=batch_size, on_step=False, on_epoch=True)
+        #self.log('val_contrastive_divergence', loss, batch_size=batch_size, on_step=False, on_epoch=True)
         self.log("Cross Entropy Validation", cross_entropy, batch_size=batch_size, on_step=False, on_epoch=True)
         self.log("Accuracy Validation", accuracy(pred, labels, task='multiclass', num_classes=num_classes),
                  batch_size=batch_size, on_step=False, on_epoch=True)
 
-        return loss
+        return cross_entropy
 
     def on_load_checkpoint(self, checkpoint):
         state_dict = checkpoint["state_dict"]

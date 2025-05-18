@@ -1,15 +1,11 @@
-import itertools
 from dataclasses import dataclass
 from typing import Tuple, List
 import torch
 import torch as th
 from torch._C._nn import pad
 from torch.utils.data import Dataset
-from torch_geometric.data import Data, Batch, Dataset as pygDataset
-import numpy as np
-import cv2
-from torch_geometric.utils import dense_to_sparse, to_dense_adj
-from torch_geometric.utils import to_dense_batch, to_dense_adj
+from torch_geometric.data import Dataset as pygDataset
+from torch_geometric.utils import to_dense_adj
 
 # TODO: consider store dense repr ons disk.
 # TODO: we discard all the data attributes (except x, adj, node_mask) -> probably is enough for all datasets we use
@@ -115,31 +111,3 @@ class DenseGraphDataset(Dataset):
 
     def __getitem__(self, idx):
         return self.data[idx], self.targets[idx]
-
-
-def superpixels_to_image(rec: DenseData, scale: int = 30, edge_width: int = 1) -> np.ndarray:
-    pos = (rec.x[:,1:].clone() * scale).int()
-
-    image = np.zeros((scale * 26, scale * 26, 1), dtype=np.uint8)
-    for (color, (x, y)) in zip(rec.x[:,0], pos):
-        x0, y0 = int(x), int(y)
-        x1, y1 = x0 - scale, y0 - scale
-
-        color = int(float(color + 0.15) * 255)
-        color = min(color, 255)
-
-        cv2.rectangle(image, (x0, y0), (x1, y1), color, -1)
-
-    edge_index = dense_to_sparse(rec.adj)[0]
-    for node_ix_0, node_ix_1 in edge_index.T:
-        x0, y0 = list(map(int, pos[node_ix_0]))
-        x1, y1 = list(map(int, pos[node_ix_1]))
-
-        x0 -= scale // 2
-        y0 -= scale // 2
-        x1 -= scale // 2
-        y1 -= scale // 2
-
-        cv2.line(image, (x0, y0), (x1, y1), 125, edge_width)
-    return image
-

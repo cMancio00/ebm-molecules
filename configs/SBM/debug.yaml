@@ -12,7 +12,7 @@ model:
   sampler:
     class_path: samplers.GraphSampler
     init_args:
-      max_len_buffer: 100
+      max_len_buffer: 1000
   nn_model:
     class_path: nn_models.graph.GCN_Dense
     init_args:
@@ -20,7 +20,7 @@ model:
       hidden_channels: 10
       out_channels: 3
 data:
-  class_path: SBMDataModule
+  class_path: data_modules.SBMDataModule
   init_args:
     name: easy
     batch_size: 32

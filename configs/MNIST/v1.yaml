@@ -1,7 +1,7 @@
 model:
   # hparams mcmc
-  mcmc_steps_tr: 40
-  mcmc_learning_rate_tr: 1.0
+  mcmc_steps_tr: 20
+  mcmc_learning_rate_tr: 10.0
   mcmc_steps_gen: 1024
   mcmc_learning_rate_gen: 1.0
   # hparams optimizer
@@ -19,8 +19,10 @@ model:
       out_dim: 10
 
 data:
-  batch_size: 512
-  num_workers: 8
+  class_path: data_modules.MNISTDataModule
+  init_args:
+    batch_size: 256
+    num_workers: 4
 
 trainer:
   accelerator: auto
@@ -40,3 +42,4 @@ trainer:
     init_args:
       save_dir: .
       name: lightning_logs
+  profiler: simple

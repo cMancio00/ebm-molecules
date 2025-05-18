@@ -21,14 +21,11 @@ class ImageSampler(SamplerWithBuffer):
 
         # MCMC
         for i in range(steps):
-            noise_x.normal_(0, 0.005)
-            x.data.clamp_(min=-1.0, max=1.0)
+            noise_x.normal_(0, 0.01)
             energy = -model(x)[idx, labels]
             energy.sum().backward()
-            x.grad.data.clamp_(-0.1, 0.1)
             x.data.add_(- (step_size * x.grad) + noise_x)
             x.grad.zero_()
-            x.data.clamp_(min=-1.0, max=1.0)
 
         return x.detach()
 
@@ -36,7 +33,7 @@ class ImageSampler(SamplerWithBuffer):
         if device is None:
             device = self.device
 
-        rand_x = 2*torch.rand((batch_size,) + self.img_shape, device=device) - 1
+        rand_x = torch.randn((batch_size,) + self.img_shape, device=device)
         rand_y = torch.randint(0, self.num_classes, (batch_size,), device=device)
 
         if collate:

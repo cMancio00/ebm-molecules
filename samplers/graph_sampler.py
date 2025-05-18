@@ -62,8 +62,8 @@ class GraphSampler(SamplerWithBuffer):
 
             with torch.no_grad():
                 sample.adj = (sample.adj + torch.transpose(sample.adj, 1, 2)) / 2
-                sample.adj.data.clamp_(0, 1)
-                sample.adj.data.round_()
+                #sample.adj.data.clamp_(0, 1)
+                #sample.adj.data.round_()
 
             sample.adj.requires_grad_()
 
@@ -83,7 +83,7 @@ class GraphSampler(SamplerWithBuffer):
         for i, n in enumerate(num_nodes):
             # TODO: is there a better way to generate random graphs? what about always using max_nodes?
             x = 2*torch.randn((n, self.num_node_features), device=device)
-            A = torch.randint(0, 2, (n, n), device=device).to(torch.float)
+            A = torch.randn((n, n), device=device)
             adj = A.T @ A
             mask = torch.ones((n,), dtype=torch.bool, device=device)
             data_list.append((DenseData(x, adj, mask), y[i]))
@@ -97,13 +97,12 @@ class GraphSampler(SamplerWithBuffer):
     def collate_fn(data_list: List[Tuple[Any, torch.Tensor]]) -> Tuple[Any, torch.Tensor]:
         return dense_collate_fn(data_list)
 
-    @staticmethod
-    def plot_sample(s: DenseData) -> Any:
-        to_plot = s.adj  # has shape N x N x F
-        if to_plot.ndim == 2:
-            to_plot = to_plot.unsqueeze(2)  # add channel for the plot
-
-        if to_plot.shape[2] == 1:
-            return to_plot.permute(2, 0, 1)  # return F x N x N
-
-        raise ValueError('Cannot plot an adjacency matrix with vector features')
+    def plot_sample(self, s: DenseData) -> Any:
+        if self.num_edge_features > 1:
+            raise ValueError('Cannot plot an adjacency matrix with edge attributes that are not scalar')
+        if s.adj.ndim == 2:
+            # it is not a batch
+            return s.adj.unsqueeze(0)
+        if s.adj.ndim == 3:
+            # it is a batch
+            return s.adj.unsqueeze(1)
