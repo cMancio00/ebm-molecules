@@ -1,10 +1,10 @@
 seed_everything: 42
 model:
   # hparams mcmc
-  mcmc_steps_tr: 20
+  mcmc_steps_tr: 40
   mcmc_learning_rate_tr: 10.0
-  mcmc_steps_gen: 100
-  mcmc_learning_rate_gen: 5.0
+  mcmc_steps_gen: 256
+  mcmc_learning_rate_gen: 1.0
   # hparams optimizer
   alpha: 0.1
   lr: 0.0001
@@ -13,6 +13,7 @@ model:
     class_path: samplers.GraphSampler
     init_args:
       max_len_buffer: 8000
+      max_num_nodes: 39
   nn_model:
     class_path: nn_models.graph.GCN_Dense
     init_args:
@@ -24,16 +25,22 @@ data:
   init_args:
     name: easy
     batch_size: 32
-    num_workers: 1
+    num_workers: 5
 
 trainer:
   accelerator: auto
   devices: auto
-  max_epochs: 100
+  max_epochs: 101
   gradient_clip_val: 0.1
+  log_every_n_steps: 10
   callbacks:
     - class_path: utils.callbacks.BufferSamplerCallback
+      init_args:
+        num_samples: 32
+        every_n_epochs: 5
     - class_path: utils.callbacks.GenerateCallback
+      init_args:
+        every_n_epochs: 5
   logger:
     class_path: TensorBoardLogger
     init_args:
