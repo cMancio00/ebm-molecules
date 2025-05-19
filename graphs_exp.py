@@ -18,7 +18,6 @@ torch.backends.cudnn.benchmark = False
 # or add it to the config.yaml
 class GraphLightningCLI(LightningCLI):
 
-
     def __init__(self, *args, **kwargs):
         super().__init__(model_class=DeepEnergyModel, *args, **kwargs)
 
@@ -28,20 +27,16 @@ class GraphLightningCLI(LightningCLI):
         self.model.sampler.num_edge_features = self.datamodule.num_edge_features
 
 
-def cli_main():
+if __name__ == '__main__':
 
     cli = GraphLightningCLI(
         seed_everything_default=42,
         trainer_defaults={
             'callbacks': [
                 ModelCheckpoint(save_top_k=1,auto_insert_metric_name=True,
-                                monitor='val_contrastive_divergence'),
+                                monitor="Accuracy Validation"),
                 LearningRateMonitor("epoch")
             ]
         }
 
     )
-
-if __name__ == '__main__':
-    cli_main()
-

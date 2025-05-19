@@ -43,7 +43,7 @@ class SBMDataset(InMemoryDataset):
                 n_nodes = torch.sum(block_sizes).item()
                 edge_index = stochastic_blockmodel_graph(block_sizes, edge_probs)
                 node_community = torch.cat([block_sizes.new_full((b,), i) for i, b in enumerate(block_sizes)])
-                x = 2 * torch.randn((n_nodes, self.NUM_NODE_FEATURES)) + node_community.view(-1, 1)
+                x = torch.randn((n_nodes, self.NUM_NODE_FEATURES)) + 5*node_community.view(-1, 1)
                 data_list.append(Data(x=x, edge_index=edge_index, y=i))
         self.save(data_list, self.processed_paths[0])
 
