@@ -29,6 +29,7 @@ class ImageSampler(SamplerWithBuffer):
 
         return x.detach()
 
+    @torch.no_grad()
     def generate_random_batch(self, batch_size, device=None, collate=True):
         if device is None:
             device = self.device

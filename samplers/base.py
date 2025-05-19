@@ -114,6 +114,7 @@ class SamplerWithBuffer(nn.Module):
         """
         raise NotImplementedError()
 
+    @torch.no_grad()
     def generate_random_batch(self, batch_size: int, device=None, collate: bool = True) -> (
             Union[List[Tuple[Any, torch.Tensor]], Tuple[Any, torch.Tensor]]):
         raise NotImplementedError()
