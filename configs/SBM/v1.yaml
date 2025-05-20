@@ -15,7 +15,7 @@ model:
       max_len_buffer: 8000
       max_num_nodes: 39
   nn_model:
-    class_path: nn_models.graph.GCN_Dense
+    class_path: nn_models.gcn.GCN_Dense
     init_args:
       in_channels: 1
       hidden_channels: 10
