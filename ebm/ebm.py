@@ -1,4 +1,5 @@
 import torch
+from pytorch_lightning.utilities import grad_norm
 from torch import Tensor
 from torchmetrics.functional import accuracy
 import torch.nn.functional as F
@@ -32,6 +33,7 @@ class DeepEnergyModel(pl.LightningModule):
 
         # positive phase
         positive_energy: Tensor = self.nn_model(x)
+        pred = positive_energy.argmax(dim=-1)
         cross_entropy: Tensor = F.cross_entropy(positive_energy, labels)
         positive_energy = positive_energy[idx, labels]
 
@@ -47,12 +49,19 @@ class DeepEnergyModel(pl.LightningModule):
         loss: Tensor = cd_generative_loss + self.hparams.alpha_ce * cross_entropy + self.hparams.alpha_penalty * penalty
 
         # log the values
-        self.log('loss', loss, on_step=False, on_epoch=True, batch_size=batch_size)
-        self.log('loss_contrastive_divergence', cd_generative_loss, on_step=False, on_epoch=True, batch_size=batch_size)
-        # self.log('penalty', penalty)
-        self.log('Positive_phase_energy', positive_energy.mean(), on_step=False, on_epoch=True, batch_size=batch_size)
-        self.log('Negative_phase_energy', negative_energy.mean(), on_step=False, on_epoch=True, batch_size=batch_size)
-        self.log("Cross Entropy", cross_entropy, on_step=False, on_epoch=True, batch_size=batch_size)
+        self.log('loss/total', loss, on_step=False, on_epoch=True, batch_size=batch_size)
+        self.log('loss/contrastive_divergence', cd_generative_loss, on_step=False, on_epoch=True, batch_size=batch_size)
+        self.log('loss/penalty', penalty, on_step=False, on_epoch=True, batch_size=batch_size)
+        self.log("loss/cross_entropy", cross_entropy, on_step=False, on_epoch=True, batch_size=batch_size)
+
+        self.log('energy/positive_phase', positive_energy.mean(), on_step=False, on_epoch=True, batch_size=batch_size)
+        self.log('energy/negative_phase', negative_energy.mean(), on_step=False, on_epoch=True, batch_size=batch_size)
+
+        self.log("accuracy/training",
+                 accuracy(pred, labels, task='multiclass',num_classes=positive_energy.shape[-1]),
+                 batch_size=batch_size,
+                 on_step=False, on_epoch=True)
+
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -72,8 +81,8 @@ class DeepEnergyModel(pl.LightningModule):
         #loss: Tensor = (negative_energy - positive_energy).mean()
 
         #self.log('val_contrastive_divergence', loss, batch_size=batch_size, on_step=False, on_epoch=True)
-        self.log("Cross Entropy Validation", cross_entropy, batch_size=batch_size, on_step=False, on_epoch=True)
-        self.log("Accuracy Validation", accuracy(pred, labels, task='multiclass', num_classes=num_classes),
+        #self.log("Cross Entropy Validation", cross_entropy, batch_size=batch_size, on_step=False, on_epoch=True)
+        self.log("accuracy/validation", accuracy(pred, labels, task='multiclass', num_classes=num_classes),
                  batch_size=batch_size, on_step=False, on_epoch=True)
 
         return cross_entropy
@@ -93,3 +102,10 @@ class DeepEnergyModel(pl.LightningModule):
 
     def on_train_start(self) -> None:
         self.sampler.init_buffer()
+
+    def on_before_optimizer_step(self, optimizer):
+        # Compute the 2-norm for each layer
+        # If using mixed precision, the gradients are already unscaled here
+        norms = grad_norm(self.nn_model, norm_type=2)
+        self.log_dict(norms)
+

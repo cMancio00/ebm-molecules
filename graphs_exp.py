@@ -34,7 +34,7 @@ if __name__ == '__main__':
         trainer_defaults={
             'callbacks': [
                 ModelCheckpoint(save_top_k=1,auto_insert_metric_name=True,
-                                monitor="Accuracy Validation"),
+                                monitor="accuracy/validation"),
                 LearningRateMonitor("epoch")
             ]
         }
