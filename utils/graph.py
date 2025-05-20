@@ -51,6 +51,8 @@ def dense_collate_fn(batch: List[Tuple[DenseData, th.Tensor]]) -> Tuple[DenseDat
         n_nodes = data.x.shape[0]
         x = pad(data.x, (data.x.ndim - 1) * (0, 0) + (0, max_num_nodes - n_nodes)).unsqueeze(0)
         adj = pad(data.adj, (data.adj.ndim - 2) * (0, 0) + 2 * (0, max_num_nodes - n_nodes)).unsqueeze(0)
+        # TODO: dequantization with 2d gaussian convolution
+        adj.add_(0.1*torch.randn_like(adj))
         mask = pad(data.mask, (0, max_num_nodes - n_nodes)).unsqueeze(0)
 
         x_list.append(x)
