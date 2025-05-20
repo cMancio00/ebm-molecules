@@ -51,8 +51,8 @@ class GraphSampler(SamplerWithBuffer):
             noise_adj.normal_(0, 0.005)
             energy = -model(sample)[idx, labels]
             energy.sum().backward()
-            sample.x.grad.data.clamp_(-0.1, 0.1)
-            sample.adj.grad.data.clamp_(-1, 1)
+            #sample.x.grad.data.clamp_(-1, 1)
+            #sample.adj.grad.data.clamp_(-1, 1)
 
             sample.x.data.add_(- (step_size * sample.x.grad) + noise_x)
             sample.adj.data.add_(- (step_size * sample.adj.grad) + noise_adj)
@@ -62,8 +62,7 @@ class GraphSampler(SamplerWithBuffer):
 
             with torch.no_grad():
                 sample.adj = (sample.adj + torch.transpose(sample.adj, 1, 2)) / 2
-                #sample.adj.data.clamp_(0, 1)
-                #sample.adj.data.round_()
+                sample.adj.clamp_(-10, 10)
 
             sample.adj.requires_grad_()
 
@@ -71,6 +70,7 @@ class GraphSampler(SamplerWithBuffer):
 
         return sample
 
+    @torch.no_grad()
     def generate_random_batch(self, batch_size: int, device=None, collate: bool = True) -> (
             Union[List[Tuple[Any, torch.Tensor]], Tuple[Any, torch.Tensor]]):
 
@@ -83,8 +83,8 @@ class GraphSampler(SamplerWithBuffer):
         for i, n in enumerate(num_nodes):
             # TODO: is there a better way to generate random graphs? what about always using max_nodes?
             x = 2*torch.randn((n, self.num_node_features), device=device)
-            A = torch.randn((n, n), device=device)
-            adj = A.T @ A
+            A = 0.1*torch.randn((n, n), device=device)
+            adj = (A.T + A) / 2
             mask = torch.ones((n,), dtype=torch.bool, device=device)
             data_list.append((DenseData(x, adj, mask), y[i]))
 
