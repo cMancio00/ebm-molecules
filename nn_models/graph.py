@@ -17,6 +17,7 @@ def normalized_cut_2d(edge_index, pos):
     edge_attr = norm(pos[row] - pos[col], p=2, dim=1)
     return normalized_cut(edge_index, edge_attr, num_nodes=pos.size(0))
 
+
 class MoNet(nn.Module):
     def __init__(self, kernel_size: int =3, out_dim: int = 10):
         super(MoNet, self).__init__()
@@ -45,21 +46,24 @@ class MoNet(nn.Module):
         x = F.dropout(x, training=self.training)
         return F.log_softmax(self.fc2(x), dim=1)
 
+
 class GCN_Dense(nn.Module):
-    def __init__(self, in_channels, hidden_channels, out_channels):
+    def __init__(self, in_channels, hidden_channels_list, out_channels):
         super().__init__()
 
-        self.conv1 = DenseGCNConv(in_channels, hidden_channels)
-        self.conv2 = DenseGCNConv(hidden_channels, hidden_channels)
-        self.conv3 = DenseGCNConv(hidden_channels, hidden_channels)
-        self.lin1 = Linear(hidden_channels, hidden_channels)
-        self.lin2 = Linear(hidden_channels, out_channels)
+        self.conv_layers = nn.ModuleList()
+        self.conv_layers.append(DenseGCNConv(in_channels, hidden_channels_list[0]))
+        for i in range(1, len(hidden_channels_list)):
+            self.conv_layers.append(DenseGCNConv(hidden_channels_list[i - 1], hidden_channels_list[i]))
+
+        self.lin1 = Linear(hidden_channels_list[-1], hidden_channels_list[-1])
+        self.lin2 = Linear(hidden_channels_list[-1], out_channels)
 
     def forward(self, in_data):
         x, adj, mask = in_data.x, in_data.adj, in_data.mask
-        x = self.conv1(x, adj, mask).relu()
-        x = self.conv2(x, adj, mask).relu()
-        x = self.conv3(x, adj, mask).relu()
+
+        for c in self.conv_layers:
+            x = c(x, adj, mask).relu()
 
         x = x.mean(dim=1)
         x = self.lin1(x).relu()
