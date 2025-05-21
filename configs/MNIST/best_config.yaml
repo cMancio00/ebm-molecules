@@ -14,8 +14,10 @@ model:
     init_args:
       max_len_buffer: 10000
   nn_model:
-    class_path: nn_models.cnn.MNISTSmallCNN
+    class_path: nn_models.cnn.SmallCNN
     init_args:
+      in_shape: [1, 28, 28]
+      n_outputs: 10
       conv_hidden_channels_list: [ 16, 32, 64]
       full_hidden_neurons_list: [ 64 ]
 
@@ -28,7 +30,7 @@ data:
 
 trainer:
   accelerator: gpu
-  devices: [3]
+  devices: [2]
   max_epochs: 500
   gradient_clip_val: 0
   callbacks:

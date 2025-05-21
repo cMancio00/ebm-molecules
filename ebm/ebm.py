@@ -14,7 +14,7 @@ class DeepEnergyModel(pl.LightningModule):
     def __init__(self, nn_model: nn.Module, sampler: SamplerWithBuffer,
                  mcmc_steps_tr: int = 10, mcmc_learning_rate_tr: float = 1.0, # hparams for the mcmc sampling during training
                  mcmc_steps_gen: int = 10, mcmc_learning_rate_gen: float = 1.0,  # hparams for the mcmc sampling during validation
-                 alpha_penalty=0.1, alpha_ce=1, lr=1e-4, beta1=0.0):  # hparams for the optimizer
+                 alpha_penalty=0.1, alpha_ce=1, alpha_cd=1, lr=1e-4, beta1=0.0):  # hparams for the optimizer
         super().__init__()
         self.save_hyperparameters()
         self.nn_model = nn_model
@@ -46,7 +46,7 @@ class DeepEnergyModel(pl.LightningModule):
         cd_generative_loss: Tensor = (negative_energy - positive_energy).mean()
         penalty = (positive_energy ** 2 + negative_energy ** 2).mean()
 
-        loss: Tensor = cd_generative_loss + self.hparams.alpha_ce * cross_entropy + self.hparams.alpha_penalty * penalty
+        loss: Tensor = self.hparams.alpha_cd * cd_generative_loss + self.hparams.alpha_ce * cross_entropy + self.hparams.alpha_penalty * penalty
 
         # log the values
         self.log('loss/total', loss, on_step=False, on_epoch=True, batch_size=batch_size)
