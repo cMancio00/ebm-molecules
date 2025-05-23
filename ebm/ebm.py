@@ -21,9 +21,10 @@ class DeepEnergyModel(pl.LightningModule):
         self.sampler = sampler
 
     def configure_optimizers(self):
-        optimizer = optim.Adam(self.parameters(), lr=self.hparams.lr, betas=(self.hparams.beta1, 0.999))
-        scheduler = optim.lr_scheduler.StepLR(optimizer, 1, gamma=0.97)
-        return [optimizer], [scheduler]
+        #optimizer = optim.Adam(self.parameters(), lr=self.hparams.lr, betas=(self.hparams.beta1, 0.999))
+        optimizer = optim.SGD(self.parameters(), lr=self.hparams.lr)
+        #scheduler = optim.lr_scheduler.StepLR(optimizer, 1, gamma=0.97)
+        return [optimizer] #, [scheduler]
 
     def training_step(self, batch, batch_idx):
         x, labels = batch
