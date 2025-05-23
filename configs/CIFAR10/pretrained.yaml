@@ -1,0 +1,44 @@
+model:
+  # hparams mcmc
+  mcmc_steps_tr: 20
+  mcmc_learning_rate_tr: 10.0
+  mcmc_steps_gen: 1024
+  mcmc_learning_rate_gen: 1.0
+  # hparams optimizer
+  alpha_penalty: 0.1
+  alpha_ce: 1
+  lr: 0.0001
+  beta1: 0.0
+  sampler:
+    class_path: samplers.ImageSampler
+    init_args:
+      max_len_buffer: 10000
+  nn_model:
+    class_path: nn_models.hub.HubModel
+    init_args:
+      repo_name: "chenyaofo/pytorch-cifar-models"
+      model_name: "cifar10_resnet20"
+      pretrained: True
+      force_reload: True
+
+data:
+  class_path: data_modules.CIFAR10DataModule
+  init_args:
+    batch_size: 128
+    num_workers: 8
+    data_dir: '/data/castellana/ebm-molecules/datasets'
+
+trainer:
+  accelerator: gpu
+  devices: [3]
+  max_epochs: 500
+  gradient_clip_val: 0
+  callbacks:
+    - class_path: utils.callbacks.BufferSamplerCallback
+    - class_path: utils.callbacks.GenerateCallback
+  logger:
+    class_path: TensorBoardLogger
+    init_args:
+      save_dir: .
+      name: CIFAR10_logs
+  profiler: simple

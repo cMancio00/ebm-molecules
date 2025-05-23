@@ -1,0 +1,42 @@
+seed_everything: 42
+model:
+  # hparams mcmc
+  mcmc_steps_tr: 20
+  mcmc_learning_rate_tr: 10.0
+  mcmc_steps_gen: 100
+  mcmc_learning_rate_gen: 5.0
+  # hparams optimizer
+  alpha_penalty: 0.1
+  alpha_ce: 1
+  lr: 0.0001
+  beta1: 0.0
+  sampler:
+    class_path: samplers.GraphSampler
+    init_args:
+      max_len_buffer: 1000
+  nn_model:
+    class_path: nn_models.gcn.GCN_Dense
+    init_args:
+      in_channels: 1
+      hidden_channels_list: [10]
+      out_channels: 2
+data:
+  class_path: data_modules.SBMDataModule
+  init_args:
+    name: easy
+    batch_size: 32
+    num_workers: 0
+
+trainer:
+  accelerator: auto
+  devices: auto
+  max_epochs: 100
+  gradient_clip_val: 0.1
+  callbacks:
+    - class_path: utils.callbacks.BufferSamplerCallback
+    - class_path: utils.callbacks.GenerateCallback
+  logger:
+    class_path: TensorBoardLogger
+    init_args:
+      save_dir: .
+      name: graph_logs
