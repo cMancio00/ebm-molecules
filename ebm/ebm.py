@@ -11,20 +11,27 @@ from torch import nn
 
 class DeepEnergyModel(pl.LightningModule):
 
-    def __init__(self, nn_model: nn.Module, sampler: SamplerWithBuffer,
+    def __init__(self, nn_model: nn.Module, sampler: SamplerWithBuffer, optimizer_type: str = 'sdg',
                  mcmc_steps_tr: int = 10, mcmc_learning_rate_tr: float = 1.0, # hparams for the mcmc sampling during training
                  mcmc_steps_gen: int = 10, mcmc_learning_rate_gen: float = 1.0,  # hparams for the mcmc sampling during validation
-                 alpha_penalty=0.1, alpha_ce=1, alpha_cd=1, lr=1e-4, beta1=0.0):  # hparams for the optimizer
+                 alpha_penalty=0.1, alpha_ce=1, alpha_cd=1, lr=1e-4, beta1=0.0, # hparams for the optimizer
+                 lr_step_size: int = 1, gamma: float = 0.97):  # hparams for the LR_scheduler
         super().__init__()
         self.save_hyperparameters()
         self.nn_model = nn_model
         self.sampler = sampler
+        self.optimizer_type = optimizer_type
 
     def configure_optimizers(self):
-        #optimizer = optim.Adam(self.parameters(), lr=self.hparams.lr, betas=(self.hparams.beta1, 0.999))
-        optimizer = optim.SGD(self.parameters(), lr=self.hparams.lr)
-        #scheduler = optim.lr_scheduler.StepLR(optimizer, 1, gamma=0.97)
-        return [optimizer] #, [scheduler]
+        if self.optimizer_type not in ["sgd", "adam"]:
+            raise ValueError(f'Optimizer must be "sgd" or "adam"')
+        if self.optimizer_type == "sgd":
+            optimizer = optim.SGD(self.parameters(), lr=self.hparams.lr)
+        else:
+            optimizer = optim.Adam(self.parameters(), lr=self.hparams.lr, betas=(self.hparams.beta1, 0.999))
+
+        scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=self.hparams.lr_step_size, gamma=self.hparams.gamma)
+        return [optimizer] , [scheduler]
 
     def training_step(self, batch, batch_idx):
         x, labels = batch
