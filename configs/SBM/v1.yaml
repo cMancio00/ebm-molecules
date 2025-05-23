@@ -18,8 +18,8 @@ model:
     class_path: nn_models.gcn.GCN_Dense
     init_args:
       in_channels: 1
-      hidden_channels: 10
-      out_channels: 3
+      hidden_channels_list: [10]
+      out_channels: 2
 data:
   class_path: data_modules.SBMDataModule
   init_args:
