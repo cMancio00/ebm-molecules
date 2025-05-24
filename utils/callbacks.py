@@ -97,7 +97,6 @@ class SpectralNormalizationCallback(pl.Callback):
         super().__init__()
 
     def on_train_start(self, trainer: Trainer, pl_module: LightningModule):
-        print("Spectral Normalization Added")
         for module in pl_module.nn_model.modules():
             if hasattr(module, "weight") and ("weight" in dict(module.named_parameters())):
                 if not is_parametrized(module, "weight"):
