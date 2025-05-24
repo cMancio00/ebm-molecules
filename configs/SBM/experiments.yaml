@@ -1,9 +1,9 @@
 seed_everything: 42
 model:
   # hparams mcmc
-  mcmc_steps_tr: 40
+  mcmc_steps_tr: 20
   mcmc_learning_rate_tr: 1.0
-  mcmc_steps_gen: 1024
+  mcmc_steps_gen: 512
   mcmc_learning_rate_gen: 1.0
   # hparams loss
   alpha_penalty: 0.1
@@ -36,13 +36,14 @@ data:
 trainer:
   accelerator: auto
   devices: auto
-  max_epochs: 26
+  max_epochs: 101
   gradient_clip_val: 0
   log_every_n_steps: 10
   callbacks:
     - class_path: utils.callbacks.BufferSamplerCallback
     - class_path: utils.callbacks.GenerateCallback
     - class_path: utils.callbacks.SpectralNormalizationCallback
+    - class_path: utils.callbacks.PlotBatchCallback
 
   logger:
     class_path: TensorBoardLogger

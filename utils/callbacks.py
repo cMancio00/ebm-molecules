@@ -101,3 +101,22 @@ class SpectralNormalizationCallback(pl.Callback):
             if hasattr(module, "weight") and ("weight" in dict(module.named_parameters())):
                 if not is_parametrized(module, "weight"):
                     spectral_norm(module, name="weight", n_power_iterations=1)
+
+
+class PlotBatchCallback(pl.Callback):
+    def __init__(self, num_samples=64, every_n_epochs=5):
+        super().__init__()
+        self.every_n_epochs = every_n_epochs
+        self.num_samples = num_samples
+        self.num_rows = int(math.sqrt(num_samples))
+
+    def on_train_batch_start(self, trainer, pl_module, batch, batch_idx):
+        if trainer.current_epoch % self.every_n_epochs == 0:
+            x, _ = batch
+            idx_to_plot = random.sample(range(len(x)), self.num_samples)
+            imgs_to_plot = [pl_module.sampler.plot_sample(x[i]) for i in idx_to_plot]
+
+            grid = make_grid(imgs_to_plot, nrow=self.num_rows)
+
+            trainer.logger.experiment.add_image("Batch samples", grid, global_step=trainer.current_epoch)
+
