@@ -65,7 +65,7 @@ class GraphSampler(SamplerWithBuffer):
             with torch.no_grad():
                 # sample.adj.data = (sample.adj.data > 0.5).float()
                 sample.adj = (sample.adj + torch.transpose(sample.adj, 1, 2)) / 2
-                # sample.adj.clamp_(-10, 10)
+                sample.adj.clamp_(-10, 10)
             sample.adj.requires_grad_()
 
         sample.detach_()
