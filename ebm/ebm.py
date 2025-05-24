@@ -11,7 +11,7 @@ from torch import nn
 
 class DeepEnergyModel(pl.LightningModule):
 
-    def __init__(self, nn_model: nn.Module, sampler: SamplerWithBuffer, optimizer_type: str = 'sdg',
+    def __init__(self, nn_model: nn.Module, sampler: SamplerWithBuffer, optimizer_type: str = 'sgd',
                  mcmc_steps_tr: int = 10, mcmc_learning_rate_tr: float = 1.0, # hparams for the mcmc sampling during training
                  mcmc_steps_gen: int = 10, mcmc_learning_rate_gen: float = 1.0,  # hparams for the mcmc sampling during validation
                  alpha_penalty=0.1, alpha_ce=1, alpha_cd=1, lr=1e-4, beta1=0.0, # hparams for the optimizer
