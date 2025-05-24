@@ -36,8 +36,6 @@ class GraphSampler(SamplerWithBuffer):
         sample: DenseData = starting_x
         sample.x.requires_grad_()
 
-        # apply gaussian blurring?
-        # sample.adj = FT.gaussian_blur(sample.adj, 3)
         sample.adj.requires_grad_()
 
         noise_x = torch.randn(sample.x.shape, device=labels.device)
@@ -48,21 +46,27 @@ class GraphSampler(SamplerWithBuffer):
         # batch.requires_grad = True
         for i in range(steps):
             noise_x.normal_(0, 0.005)
-            noise_adj.normal_(0, 0.005)
+            # noise_adj.normal_(0, 0.005)
+            # Apply gaussian blur instead of adding noise
+            sample.adj.data = FT.gaussian_blur(sample.adj.data, 3)
+
             energy = -model(sample)[idx, labels]
             energy.sum().backward()
             #sample.x.grad.data.clamp_(-1, 1)
             #sample.adj.grad.data.clamp_(-1, 1)
 
             sample.x.data.add_(- (step_size * sample.x.grad) + noise_x)
+            noise_adj = 0
             sample.adj.data.add_(- (step_size * sample.adj.grad) + noise_adj)
+
 
             sample.x.grad.zero_()
             sample.adj.grad.zero_()
 
             with torch.no_grad():
+                # sample.adj.clamp_(0, 1)
+                # sample.adj = torch.ceil(sample.adj)
                 sample.adj = (sample.adj + torch.transpose(sample.adj, 1, 2)) / 2
-                sample.adj.clamp_(-10, 10)
 
             sample.adj.requires_grad_()
 
