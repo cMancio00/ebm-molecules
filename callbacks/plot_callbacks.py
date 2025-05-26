@@ -14,6 +14,8 @@ def _plot_data(func_to_plot, data_list, num_rows, subplot_size=(2, 2)):
     num_cols = n_samples // num_rows
     f, ax_list = plt.subplots(num_rows, num_cols, figsize=(subplot_size[0] * num_cols, subplot_size[1] * num_rows))
     ax_list = ax_list.reshape(-1)
+    plt.setp(ax_list, xticks=[], yticks=[])
+
     for i, data in enumerate(data_list):
         func_to_plot(data, ax_list[i])
 
@@ -101,7 +103,7 @@ class BufferSamplerCallback(pl.Callback):
         if trainer.current_epoch % self.every_n_epochs == 0:
             idx_to_plot = random.sample(range(len(pl_module.sampler.buffer)), self.num_samples)
 
-            data_list = [pl_module.sampler.buffer[i] for i in idx_to_plot]
+            data_list = [(pl_module.sampler.buffer[i][0].clone(), pl_module.sampler.buffer[i][1]) for i in idx_to_plot]
             f = _plot_data(pl_module.sampler.plot_sample, data_list, self.num_rows)
 
             trainer.logger.experiment.add_figure("Samples from MCMC buffer", f, global_step=trainer.current_epoch)
@@ -114,15 +116,14 @@ class PlotBatchCallback(pl.Callback):
         self.num_rows = int(math.sqrt(num_samples))
         self.num_cols = self.num_rows
         self.num_samples = self.num_rows * self.num_cols
+
     def on_train_batch_start(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule", batch: Any, batch_idx: int
                              ) -> None:
 
         if trainer.current_epoch % self.every_n_epochs == 0 and batch_idx == 0:
             x, y = batch
             idx_to_plot = random.sample(range(len(x)), self.num_samples)
-            data_list = [(x[i], y[i]) for i in idx_to_plot]
+            data_list = [(x[i].clone(), y[i]) for i in idx_to_plot]
             f = _plot_data(pl_module.sampler.plot_sample, data_list, self.num_rows)
 
             trainer.logger.experiment.add_figure("Batch samples", f, global_step=trainer.current_epoch)
-
-
