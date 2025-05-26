@@ -47,15 +47,18 @@ class SBMDataset(InMemoryDataset):
                 node_community = torch.cat([block_sizes.new_full((b,), i) for i, b in enumerate(block_sizes)])
                 x = torch.randn((n_nodes, self.NUM_NODE_FEATURES)) + 5 * node_community.view(-1, 1)
 
-                assert not geom_utils.contains_isolated_nodes(edge_index, n_nodes)
+                # remove isolated nodes
+                edge_index, _, mask = geom_utils.remove_isolated_nodes(edge_index, num_nodes=n_nodes)
+                x = x[mask]
 
                 data_list.append(Data(x=x, edge_index=edge_index, y=i))
+
         self.save(data_list, self.processed_paths[0])
 
 
 class SBMDatasetEasy(SBMDataset):
 
-    NUM_GRAPHS = 10000
+    NUM_GRAPHS = 20000
     AVG_NUM_NODES = 20
     NUM_CLASSES = 2
     P_INTRA_CLASS = 0.9
@@ -67,8 +70,8 @@ class SBMDataModule(pl.LightningDataModule):
 
     CLASS_NAME_DICT = {'easy': SBMDatasetEasy}
 
-    def __init__(self, data_dir: str = "datasets/SBM",
-                 name='easy',
+    def __init__(self, data_dir: str = "datasets",
+                 name='SBM/easy',
                  batch_size: int = 32,
                  num_workers: int = 4):
 
@@ -117,7 +120,7 @@ class SBMDataModule(pl.LightningDataModule):
 
 
 if __name__ == '__main__':
-    dm = SBMDataModule(data_dir='../datasets/SBM', num_workers=0)
+    dm = SBMDataModule(data_dir='../datasets', num_workers=0)
     dm.prepare_data()
     dm.setup('fit')
     tr_loader = dm.train_dataloader()
