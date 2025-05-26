@@ -1,22 +1,30 @@
+import matplotlib.pyplot as plt
 from torch import nn
-import random
 from typing import List, Tuple, Any, Union
 import torch
-import numpy as np
-from lightning import LightningModule
 from utils.graph import DenseData, dense_collate_fn
 from .base import SamplerWithBuffer
-import torchvision.transforms.functional as FT
+from utils.plot import plot_graph
+
+
+def _normalize_graph(adj):
+    # make symmetric
+    new_adj = (adj + torch.transpose(adj, 1, 2))
+    new_adj.div_(2)
+    # clamp between 0 and 1
+    new_adj.clamp_(0, 1)
+    # remove self loops
+    torch.diagonal(new_adj, dim1=1, dim2=2).zero_()
+    return new_adj
 
 
 class GraphSampler(SamplerWithBuffer):
 
-    def __init__(self, min_num_nodes=10, max_num_nodes=40, *args, **kwargs):
+    def __init__(self, max_num_nodes=40, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.num_node_features = None
         self.num_edge_features = None
         self.max_num_nodes = max_num_nodes
-        self.min_num_nodes = min_num_nodes
 
     def _MCMC_generation(self, model: nn.Module, steps: int, step_size: float, labels: torch.Tensor, starting_x: Any) -> Any:
         """
@@ -47,14 +55,9 @@ class GraphSampler(SamplerWithBuffer):
         for i in range(steps):
             noise_x.normal_(0, 0.005)
             noise_adj.normal_(0, 0.005)
-            # Apply gaussian blur instead of adding noise
-            # sample.adj.data = FT.gaussian_blur(sample.adj.data, 3)
-
 
             energy = -model(sample)[idx, labels]
             energy.sum().backward()
-            #sample.x.grad.data.clamp_(-1, 1)
-            #sample.adj.grad.data.clamp_(-1, 1)
 
             sample.x.data.add_(- (step_size * sample.x.grad) + noise_x)
             sample.adj.data.add_(- (step_size * sample.adj.grad) + noise_adj)
@@ -63,9 +66,8 @@ class GraphSampler(SamplerWithBuffer):
             sample.adj.grad.zero_()
 
             with torch.no_grad():
-                # sample.adj.data = (sample.adj.data > 0.5).float()
-                sample.adj = (sample.adj + torch.transpose(sample.adj, 1, 2)) / 2
-                sample.adj.clamp_(-10, 10)
+                sample.adj = _normalize_graph(sample.adj)
+
             sample.adj.requires_grad_()
 
         sample.detach_()
@@ -79,32 +81,21 @@ class GraphSampler(SamplerWithBuffer):
         if device is None:
             device = self.device
 
-        num_nodes = torch.randint(10, self.max_num_nodes+1, size=(batch_size,)).tolist()
-        data_list = []
         y = torch.randint(0, self.num_classes, size=(batch_size,), device=device)
-        for i, n in enumerate(num_nodes):
-            # TODO: is there a better way to generate random graphs? what about always using max_nodes?
-            x = 2*torch.randn((n, self.num_node_features), device=device)
-            A = 0.1*torch.randn((n, n), device=device)
-            adj = (A.T + A) / 2
-            mask = torch.ones((n,), dtype=torch.bool, device=device)
-            data_list.append((DenseData(x, adj, mask), y[i]))
+        x = 2 * torch.randn((batch_size, self.max_num_nodes, self.num_node_features), device=device)
+        adj = 0.1 + 0.1 * torch.randn((batch_size, self.max_num_nodes, self.max_num_nodes), device=device)
+        adj = _normalize_graph(adj)
+        mask = torch.ones((batch_size, self.max_num_nodes), dtype=torch.bool, device=device)
 
         if collate:
-            return self.collate_fn(data_list)
+            return DenseData(x, adj, mask), y
         else:
-            return data_list
+            return [(DenseData(x[i], adj[i], mask[i]), y[i]) for i in range(batch_size)]
 
     @staticmethod
     def collate_fn(data_list: List[Tuple[Any, torch.Tensor]]) -> Tuple[Any, torch.Tensor]:
         return dense_collate_fn(data_list)
 
-    def plot_sample(self, s: DenseData) -> Any:
-        if self.num_edge_features > 1:
-            raise ValueError('Cannot plot an adjacency matrix with edge attributes that are not scalar')
-        if s.adj.ndim == 2:
-            # it is not a batch
-            return s.adj.unsqueeze(0)
-        if s.adj.ndim == 3:
-            # it is a batch
-            return s.adj.unsqueeze(1)
+    def plot_sample(self, s: Tuple[DenseData, torch.Tensor], ax: plt.Axes) -> None:
+        plot_graph(s[0], ax)
+        ax.set_title(f'Label {s[1]}')

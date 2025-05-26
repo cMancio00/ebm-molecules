@@ -3,7 +3,7 @@ import lightning as pl
 import torch
 from torch.utils.data import DataLoader, random_split
 from utils.graph import dense_collate_fn, DenseGraphDataset
-from torch_geometric.utils import stochastic_blockmodel_graph
+import torch_geometric.utils as geom_utils
 from torch_geometric.data import Data, InMemoryDataset
 import os.path as osp
 
@@ -38,20 +38,25 @@ class SBMDataset(InMemoryDataset):
             num_blocks = i + 1
             edge_probs = self.P_INTRA_CLASS * torch.eye(num_blocks) + self.P_EXTRA_CLASS * (1 - torch.eye(num_blocks))
             for _ in range(n_graphs_for_class):
-                n_nodes = int(self.AVG_NUM_NODES + 5 * torch.randn(1).item())
+                n_nodes = int(self.AVG_NUM_NODES + 2 * torch.randn(1).item())
+                n_nodes = max(n_nodes, 5)
                 block_sizes = (n_nodes // num_blocks * torch.ones(num_blocks)).to(torch.long)
                 n_nodes = torch.sum(block_sizes).item()
-                edge_index = stochastic_blockmodel_graph(block_sizes, edge_probs)
+                edge_index = geom_utils.stochastic_blockmodel_graph(block_sizes, edge_probs)
+                edge_index, _ = geom_utils.remove_self_loops(edge_index)
                 node_community = torch.cat([block_sizes.new_full((b,), i) for i, b in enumerate(block_sizes)])
                 x = torch.randn((n_nodes, self.NUM_NODE_FEATURES)) + 5 * node_community.view(-1, 1)
+
+                assert not geom_utils.contains_isolated_nodes(edge_index, n_nodes)
+
                 data_list.append(Data(x=x, edge_index=edge_index, y=i))
         self.save(data_list, self.processed_paths[0])
 
 
 class SBMDatasetEasy(SBMDataset):
 
-    NUM_GRAPHS = 20000
-    AVG_NUM_NODES = 30
+    NUM_GRAPHS = 10000
+    AVG_NUM_NODES = 20
     NUM_CLASSES = 2
     P_INTRA_CLASS = 0.9
     P_EXTRA_CLASS = 0.1

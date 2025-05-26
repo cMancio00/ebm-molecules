@@ -34,8 +34,8 @@ trainer:
   max_epochs: 500
   gradient_clip_val: 0
   callbacks:
-    - class_path: utils.callbacks.BufferSamplerCallback
-    - class_path: utils.callbacks.GenerateCallback
+    - class_path: callbacks.BufferSamplerCallback
+    - class_path: callbacks.GenerateCallback
   logger:
     class_path: TensorBoardLogger
     init_args:

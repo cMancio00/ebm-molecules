@@ -2,7 +2,6 @@ import torch
 from ebm import DeepEnergyModel
 from data_modules import SBMDataModule
 from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
-from utils.callbacks import BufferSamplerCallback
 from lightning.pytorch.cli import LightningCLI
 
 torch.set_float32_matmul_precision('high')

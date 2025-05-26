@@ -40,10 +40,10 @@ trainer:
   gradient_clip_val: 0
   log_every_n_steps: 10
   callbacks:
-    - class_path: utils.callbacks.BufferSamplerCallback
-    - class_path: utils.callbacks.GenerateCallback
-    - class_path: utils.callbacks.SpectralNormalizationCallback
-    - class_path: utils.callbacks.PlotBatchCallback
+    - class_path: callbacks.BufferSamplerCallback
+    - class_path: callbacks.GenerateCallback
+    - class_path: callbacks.SpectralNormalizationCallback
+    - class_path: callbacks.PlotBatchCallback
 
   logger:
     class_path: TensorBoardLogger

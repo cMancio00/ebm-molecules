@@ -111,7 +111,7 @@ class DeepEnergyModel(pl.LightningModule):
     def on_train_start(self) -> None:
         self.sampler.init_buffer()
 
-    def on_before_optimizer_step(self, optimizer):
+    def on_train_batch_end (self, outputs, batch, batch_idx) -> None:
         # Compute the 2-norm for each layer
         # If using mixed precision, the gradients are already unscaled here
         norms = grad_norm(self.nn_model, norm_type=2)

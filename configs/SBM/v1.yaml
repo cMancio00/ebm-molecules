@@ -34,11 +34,11 @@ trainer:
   gradient_clip_val: 0.1
   log_every_n_steps: 10
   callbacks:
-    - class_path: utils.callbacks.BufferSamplerCallback
+    - class_path: callbacks.BufferSamplerCallback
       init_args:
         num_samples: 32
         every_n_epochs: 5
-    - class_path: utils.callbacks.GenerateCallback
+    - class_path: callbacks.GenerateCallback
       init_args:
         every_n_epochs: 5
   logger:
