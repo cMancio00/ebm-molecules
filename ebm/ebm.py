@@ -20,15 +20,14 @@ class DeepEnergyModel(pl.LightningModule):
         self.save_hyperparameters()
         self.nn_model = nn_model
         self.sampler = sampler
-        self.optimizer_type = optimizer_type
 
     def configure_optimizers(self):
-        if self.optimizer_type not in ["sgd", "adam"]:
-            raise ValueError(f'Optimizer must be "sgd" or "adam"')
-        if self.optimizer_type == "sgd":
+        if self.hparams.optimizer_type == "sgd":
             optimizer = optim.SGD(self.parameters(), lr=self.hparams.lr)
-        else:
+        elif self.hparams.optimizer_type == "adam":
             optimizer = optim.Adam(self.parameters(), lr=self.hparams.lr, betas=(self.hparams.beta1, 0.999))
+        else:
+            raise ValueError(f'Optimizer must be "sgd" or "adam"')
 
         scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=self.hparams.lr_step_size, gamma=self.hparams.gamma)
         return [optimizer] , [scheduler]
