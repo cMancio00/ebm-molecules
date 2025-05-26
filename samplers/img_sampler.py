@@ -49,8 +49,8 @@ class ImageSampler(SamplerWithBuffer):
         return torch.stack(x_list), torch.stack(y_list)
 
     def plot_sample(self, s: Tuple[torch.Tensor, torch.Tensor], ax: plt.Axes) -> None:
-        img = s[0]
+        img = s[0].clone().cpu()
         low, high = img.min(), img.max()
         img.sub_(low).div_(max(high - low, 1e-5))
         ax.imshow(img.permute(1, 2, 0), cmap='gray', vmin=0, vmax=1)
-        ax.set_title(f'Label {s[1]}')
+        ax.set_title(f'Label {s[1].cpu()}')

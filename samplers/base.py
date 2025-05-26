@@ -125,5 +125,5 @@ class SamplerWithBuffer(nn.Module):
         raise NotImplementedError()
 
     def plot_sample(self, s: Tuple[Any, torch.Tensor], ax: plt.Axes) -> None:
-        ax.imshow(s[0])
-        ax.set_title(f'Label {s[1]}')
+        ax.imshow(s[0].clone().cpu())
+        ax.set_title(f'Label {s[1].cpu()}')

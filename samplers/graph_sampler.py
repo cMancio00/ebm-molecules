@@ -97,5 +97,8 @@ class GraphSampler(SamplerWithBuffer):
         return dense_collate_fn(data_list)
 
     def plot_sample(self, s: Tuple[DenseData, torch.Tensor], ax: plt.Axes) -> None:
-        plot_graph(s[0], ax)
-        ax.set_title(f'Label {s[1]}')
+        g = s[0]
+        g = DenseData(g.x.clone().cpu(), g.adj.clone().cpu(), g.mask.clone().cpu())
+
+        plot_graph(g, ax)
+        ax.set_title(f'Label {s[1].cpu()}')
