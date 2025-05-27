@@ -55,7 +55,7 @@ class GenerateCallback(pl.Callback):
 
             start_x, _ = pl_module.sampler.generate_random_batch(batch_size=labels.shape[0], device=device,
                                                                  collate=True)
-            all_sample = [start_x.clone()]
+            all_sample = [start_x.clone().cpu()]
 
             n_steps = pl_module.hparams.mcmc_steps_gen
 
@@ -67,13 +67,13 @@ class GenerateCallback(pl.Callback):
                                                             step_size=pl_module.hparams.mcmc_learning_rate_gen,
                                                             labels=labels,
                                                             starting_x=start_x)
-                all_sample.append(start_x.clone())
+                all_sample.append(start_x.clone().cpu())
 
             n_cols = len(all_sample)
             data_list = [(None, None) for _ in range(n_cols * num_classes)]
             for j, s in enumerate(all_sample):
                 for i in range(num_classes):
-                    data_list[i*n_cols + j] = (s[i], torch.tensor(i))
+                    data_list[i*n_cols + j] = (s[i], torch.tensor(i, device='cpu'))
 
             f = _plot_data(pl_module.sampler.plot_sample, data_list, num_classes)
             trainer.logger.experiment.add_figure(f"Generation during Training", f, global_step=trainer.current_epoch)
@@ -103,7 +103,8 @@ class BufferSamplerCallback(pl.Callback):
         if trainer.current_epoch % self.every_n_epochs == 0:
             idx_to_plot = random.sample(range(len(pl_module.sampler.buffer)), self.num_samples)
 
-            data_list = [(pl_module.sampler.buffer[i][0].clone(), pl_module.sampler.buffer[i][1]) for i in idx_to_plot]
+            data_list = [(pl_module.sampler.buffer[i][0].clone().cpu(), pl_module.sampler.buffer[i][1].clone().cpu())
+                         for i in idx_to_plot]
             f = _plot_data(pl_module.sampler.plot_sample, data_list, self.num_rows)
 
             trainer.logger.experiment.add_figure("Samples from MCMC buffer", f, global_step=trainer.current_epoch)
@@ -122,8 +123,9 @@ class PlotBatchCallback(pl.Callback):
 
         if trainer.current_epoch % self.every_n_epochs == 0 and batch_idx == 0:
             x, y = batch
+            x, y = x.clone().cpu(), y.clone().cpu()
             idx_to_plot = random.sample(range(len(x)), self.num_samples)
-            data_list = [(x[i].clone(), y[i]) for i in idx_to_plot]
+            data_list = [(x[i], y[i]) for i in idx_to_plot]
             f = _plot_data(pl_module.sampler.plot_sample, data_list, self.num_rows)
 
             trainer.logger.experiment.add_figure("Batch samples", f, global_step=trainer.current_epoch)

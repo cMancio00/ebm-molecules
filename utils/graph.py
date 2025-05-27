@@ -42,6 +42,9 @@ class DenseData:
     def clone(self):
         return DenseData(self.x.clone(), self.adj.clone(), self.mask.clone())
 
+    def cpu(self):
+        return DenseData(self.x.cpu(), self.adj.cpu(), self.mask.cpu())
+
 
 def dense_collate_fn(batch: List[Tuple[DenseData, th.Tensor]]) -> Tuple[DenseData, th.Tensor]:
     max_num_nodes = max([el[0].x.shape[0] for el in batch])
