@@ -99,3 +99,10 @@ class GraphSampler(SamplerWithBuffer):
     def plot_sample(self, s: Tuple[DenseData, torch.Tensor], ax: plt.Axes) -> None:
         plot_graph(s[0], ax)
         ax.set_title(f'Label {s[1]}')
+
+
+class GraphSBMSampler(GraphSampler):
+
+    def plot_sample(self, s: Tuple[DenseData, torch.Tensor], ax: plt.Axes) -> None:
+        plot_graph(s[0], ax, n_communities = (s[1].item() + 1))
+        ax.set_title(f'Label {s[1]}')

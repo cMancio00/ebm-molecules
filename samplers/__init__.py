@@ -1,2 +1,2 @@
 from .img_sampler import ImageSampler
-from .graph_sampler import GraphSampler
+from .graph_sampler import GraphSampler, GraphSBMSampler

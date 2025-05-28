@@ -11,7 +11,7 @@ model:
   lr: 0.001
   beta1: 0.0
   sampler:
-    class_path: samplers.GraphSampler
+    class_path: samplers.GraphSBMSampler
     init_args:
       max_len_buffer: 10000
   nn_model:

@@ -4,9 +4,10 @@ import networkx as nx
 from matplotlib import pyplot as plt
 
 from utils.graph import DenseData
+from sklearn.cluster import SpectralClustering
 
 
-def plot_graph(graph: DenseData, ax=None):
+def plot_graph(graph: DenseData, ax=None, n_communities=1):
     if ax is None:
         _, ax = plt.subplots()
     else:
@@ -16,19 +17,23 @@ def plot_graph(graph: DenseData, ax=None):
     adj = graph.adj.numpy()[:n_nodes, :n_nodes]
     g = nx.from_numpy_array(adj)
 
-    communities = nx.community.louvain_communities(g)
-    cluster_ids = np.zeros(g.number_of_nodes(), dtype=np.int32)
-    n_clusters = len(communities)
+    if n_communities > 1:
+        sc = SpectralClustering(n_communities, affinity='precomputed', assign_labels='cluster_qr')
+        sc.fit(adj)
+        cluster_ids = sc.labels_
+    else:
+        cluster_ids = np.zeros(n_nodes)
+
 
     # build the position for the clusters
     pos = {}
-    theta = (2 * np.pi) / n_clusters
+    theta = (2 * np.pi) / n_communities
     r = 2
-    centers = [(r * np.cos(i * theta), r * np.sin(i * theta)) for i in range(n_clusters)]
-    for i in range(n_clusters):
-        for u in communities[i]:
-            cluster_ids[u] = i
-        pos.update(nx.spring_layout(nx.induced_subgraph(g, communities[i]), seed=2222, center=centers[i]))
+    centers = [(r * np.cos(i * theta), r * np.sin(i * theta)) for i in range(n_communities)]
+
+    for i in range(n_communities):
+        community_i = np.flatnonzero(cluster_ids == i)
+        pos.update(nx.spring_layout(nx.induced_subgraph(g, community_i), seed=2222, center=centers[i]))
 
     # draw the nodes
     nx.draw_networkx_nodes(g, pos=pos, node_size=20, node_shape='o', cmap=plt.get_cmap('tab10'),
