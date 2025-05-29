@@ -1,6 +1,7 @@
 from typing import Tuple
 import lightning as pl
 from torch_geometric.datasets import QM9
+from torch_geometric.data import Data
 import torch
 from torch.utils.data import DataLoader, random_split
 from utils.graph import dense_collate_fn, DenseData
@@ -53,7 +54,7 @@ class QM9DataModule(pl.LightningDataModule):
         return DataLoader(self.data_test, batch_size=self.batch_size, num_workers=self.num_workers,
                           collate_fn=dense_collate_fn)
 
-def densify_qm9(data) -> Tuple[DenseData, torch.Tensor]:
+def densify_qm9(data: Data) -> Tuple[DenseData, torch.Tensor]:
     x = data.x[:,:-6]
     x_dim = x.size(0)
     adj_3d = torch.zeros((x_dim, x_dim, 5))
