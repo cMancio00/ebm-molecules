@@ -7,9 +7,7 @@ from torch_geometric.nn.pool import graclus
 import torch.nn.functional as F
 import torch_geometric.transforms as T
 from torch_geometric.utils import normalized_cut
-import lightning as pl
-import torch.optim as optim
-from math import ceil
+
 
 
 def normalized_cut_2d(edge_index, pos):
@@ -59,12 +57,14 @@ class GCN_Dense(nn.Module):
         self.lin1 = Linear(hidden_channels_list[-1], hidden_channels_list[-1])
         self.lin2 = Linear(hidden_channels_list[-1], out_channels)
 
+        self.SiLU = nn.SiLU()
+
     def forward(self, in_data):
         x, adj, mask = in_data.x, in_data.adj, in_data.mask
 
         for c in self.conv_layers:
-            x = c(x, adj, mask).relu()
+            x = self.SiLU(c(x, adj, mask))
 
         x = x.mean(dim=1)
-        x = self.lin1(x).relu()
+        x = self.SiLU(self.lin1(x))
         return self.lin2(x)

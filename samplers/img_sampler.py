@@ -1,5 +1,6 @@
 from typing import List, Any, Union, Tuple
 import torch
+from matplotlib import pyplot as plt
 from torch import nn
 from .base import SamplerWithBuffer
 
@@ -46,3 +47,10 @@ class ImageSampler(SamplerWithBuffer):
     def collate_fn(data_list: List[Tuple[Any, torch.Tensor]]) -> Tuple[Any, torch.Tensor]:
         x_list, y_list = zip(*data_list)
         return torch.stack(x_list), torch.stack(y_list)
+
+    def plot_sample(self, s: Tuple[torch.Tensor, torch.Tensor], ax: plt.Axes) -> None:
+        img = s[0]
+        low, high = img.min(), img.max()
+        img.sub_(low).div_(max(high - low, 1e-5))
+        ax.imshow(img.permute(1, 2, 0), cmap='gray', vmin=0, vmax=1)
+        ax.set_title(f'Label {s[1]}')

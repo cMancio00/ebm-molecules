@@ -1,17 +1,30 @@
 import math
 import random
+from typing import Any
+
+import matplotlib.pyplot as plt
 import torch
 import lightning as pl
 from lightning import Trainer, LightningModule
 import torchvision
-from torch.nn.utils.parametrizations import spectral_norm
-from torch.nn.utils.parametrize import is_parametrized
 
-from torchvision.utils import make_grid
+
+def _plot_data(func_to_plot, data_list, num_rows, subplot_size=(2, 2)):
+    n_samples = len(data_list)
+    num_cols = n_samples // num_rows
+    f, ax_list = plt.subplots(num_rows, num_cols, figsize=(subplot_size[0] * num_cols, subplot_size[1] * num_rows))
+    ax_list = ax_list.reshape(-1)
+    plt.setp(ax_list, xticks=[], yticks=[])
+
+    for i, data in enumerate(data_list):
+        func_to_plot(data, ax_list[i])
+
+    return f
+
 
 class GenerateCallback(pl.Callback):
 
-    def __init__(self, n_plot_during_generation: int=10, every_n_epochs: int=5):
+    def __init__(self, n_plot_during_generation: int = 10, every_n_epochs: int = 5):
         """Uses MCMC to sample tensors from the model and logs them in the Tensorboard at the end
         of training epochs.
 
@@ -20,7 +33,7 @@ class GenerateCallback(pl.Callback):
             n_plot_during_generation (int, optional): Number of samples to visualize during the generation. Defaults to 10.
             every_n_epochs (int, optional): When we want to generate tensors. Defaults to 5.
             tensors_to_generate (int, optional): Number of tensors to generate. Defaults to 1
-        
+
         For example: The default number of steps in MCMC is 256, if we set `vis_steps` to 8, we will
         visualize 1 image each 32 steps (256/8).
         """
@@ -40,30 +53,35 @@ class GenerateCallback(pl.Callback):
             device = pl_module.device
             labels = torch.arange(num_classes, device=device)
 
-            start_x, _ = pl_module.sampler.generate_random_batch(batch_size=labels.shape[0], device=device, collate=True)
-            all_sample = [pl_module.sampler.plot_sample(start_x).clone()]
+            start_x, _ = pl_module.sampler.generate_random_batch(batch_size=labels.shape[0], device=device,
+                                                                 collate=True)
+            all_sample = [start_x.clone().cpu()]
 
             n_steps = pl_module.hparams.mcmc_steps_gen
 
             mcmc_steps = n_steps // self.n_plot_during_generation
 
             for _ in range(self.n_plot_during_generation):
-
                 start_x = pl_module.sampler.MCMC_generation(model=pl_module.nn_model,
                                                             steps=mcmc_steps,
                                                             step_size=pl_module.hparams.mcmc_learning_rate_gen,
                                                             labels=labels,
                                                             starting_x=start_x)
-                all_sample.append(pl_module.sampler.plot_sample(start_x).clone())
+                all_sample.append(start_x.clone().cpu())
 
-            all_images = torch.stack(all_sample, dim=1).view((-1,) + all_sample[0].shape[1:])
-            grid = torchvision.utils.make_grid(all_images, nrow=self.n_plot_during_generation+1)
-            trainer.logger.experiment.add_image(f"Generation during Training", grid, global_step=trainer.current_epoch)
+            n_cols = len(all_sample)
+            data_list = [(None, None) for _ in range(n_cols * num_classes)]
+            for j, s in enumerate(all_sample):
+                for i in range(num_classes):
+                    data_list[i*n_cols + j] = (s[i], torch.tensor(i, device='cpu'))
+
+            f = _plot_data(pl_module.sampler.plot_sample, data_list, num_classes)
+            trainer.logger.experiment.add_figure(f"Generation during Training", f, global_step=trainer.current_epoch)
 
 
 class BufferSamplerCallback(pl.Callback):
 
-    def __init__(self, num_samples=64, every_n_epochs=5):
+    def __init__(self, num_samples=16, every_n_epochs=5):
         """Samples from the MCMC buffer and save the tensors to the Tensorboard
 
         Args:
@@ -84,21 +102,30 @@ class BufferSamplerCallback(pl.Callback):
         """
         if trainer.current_epoch % self.every_n_epochs == 0:
             idx_to_plot = random.sample(range(len(pl_module.sampler.buffer)), self.num_samples)
-            imgs_to_plot = [pl_module.sampler.plot_sample(pl_module.sampler.buffer[i][0]) for i in idx_to_plot]
 
-            grid = make_grid(imgs_to_plot, nrow=self.num_rows)
+            data_list = [(pl_module.sampler.buffer[i][0].clone().cpu(), pl_module.sampler.buffer[i][1].clone().cpu())
+                         for i in idx_to_plot]
+            f = _plot_data(pl_module.sampler.plot_sample, data_list, self.num_rows)
 
-            trainer.logger.experiment.add_image("Samples from MCMC buffer", grid, global_step=trainer.current_epoch)
+            trainer.logger.experiment.add_figure("Samples from MCMC buffer", f, global_step=trainer.current_epoch)
 
 
-class SpectralNormalizationCallback(pl.Callback):
-
-    def __init__(self):
+class PlotBatchCallback(pl.Callback):
+    def __init__(self, num_samples=16, every_n_epochs=5):
         super().__init__()
+        self.every_n_epochs = every_n_epochs
+        self.num_rows = int(math.sqrt(num_samples))
+        self.num_cols = self.num_rows
+        self.num_samples = self.num_rows * self.num_cols
 
-    def on_train_start(self, trainer: Trainer, pl_module: LightningModule):
-        print("Spectral Normalization Added")
-        for module in pl_module.nn_model.modules():
-            if hasattr(module, "weight") and ("weight" in dict(module.named_parameters())):
-                if not is_parametrized(module, "weight"):
-                    spectral_norm(module, name="weight", n_power_iterations=1)
+    def on_train_batch_start(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule", batch: Any, batch_idx: int
+                             ) -> None:
+
+        if trainer.current_epoch % self.every_n_epochs == 0 and batch_idx == 0:
+            x, y = batch
+            x, y = x.clone().cpu(), y.clone().cpu()
+            idx_to_plot = random.sample(range(len(x)), self.num_samples)
+            data_list = [(x[i], y[i]) for i in idx_to_plot]
+            f = _plot_data(pl_module.sampler.plot_sample, data_list, self.num_rows)
+
+            trainer.logger.experiment.add_figure("Batch samples", f, global_step=trainer.current_epoch)

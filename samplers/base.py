@@ -3,6 +3,7 @@ from typing import List, Any, Tuple, Union
 import torch
 import numpy as np
 import random
+import matplotlib.pyplot as plt
 
 
 class SamplerWithBuffer(nn.Module):
@@ -123,5 +124,6 @@ class SamplerWithBuffer(nn.Module):
     def collate_fn(data_list: List[Tuple[Any, torch.Tensor]]) -> Tuple[Any, torch.Tensor]:
         raise NotImplementedError()
 
-    def plot_sample(self, s: Any) -> Any:
-        return s
+    def plot_sample(self, s: Tuple[Any, torch.Tensor], ax: plt.Axes) -> None:
+        ax.imshow(s[0])
+        ax.set_title(f'Label {s[1]}')

@@ -39,6 +39,12 @@ class DenseData:
         self.adj = self.adj.detach()
         self.mask = self.mask.detach()
 
+    def clone(self):
+        return DenseData(self.x.clone(), self.adj.clone(), self.mask.clone())
+
+    def cpu(self):
+        return DenseData(self.x.cpu(), self.adj.cpu(), self.mask.cpu())
+
 
 def dense_collate_fn(batch: List[Tuple[DenseData, th.Tensor]]) -> Tuple[DenseData, th.Tensor]:
     max_num_nodes = max([el[0].x.shape[0] for el in batch])
@@ -53,6 +59,7 @@ def dense_collate_fn(batch: List[Tuple[DenseData, th.Tensor]]) -> Tuple[DenseDat
         adj = pad(data.adj, (data.adj.ndim - 2) * (0, 0) + 2 * (0, max_num_nodes - n_nodes)).unsqueeze(0)
         # TODO: dequantization with 2d gaussian convolution
         adj.add_(0.1*torch.randn_like(adj))
+        adj.clamp_(0,1)
         mask = pad(data.mask, (0, max_num_nodes - n_nodes)).unsqueeze(0)
 
         x_list.append(x)
@@ -84,7 +91,8 @@ class DenseGraphDataset(Dataset):
             x = el_dict.pop('x')
             adj = to_dense_adj(
                 el_dict.pop('edge_index'),
-                edge_attr=el_dict.pop('edge_attr', None)
+                edge_attr=el_dict.pop('edge_attr', None),
+                max_num_nodes=x.shape[0]
             ).squeeze(0)
             mask = th.ones(
                 x.shape[0],
