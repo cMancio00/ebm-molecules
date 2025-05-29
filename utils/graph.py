@@ -75,49 +75,44 @@ def dense_collate_fn(batch: List[Tuple[DenseData, th.Tensor]]) -> Tuple[DenseDat
     return DenseData(x_stacked, adj_stacked, mask_stacked), y_stacked
 
 
+def _get_y(data):
+    return data.y.squeeze(0)
+
+
+def _get_dense_graph(data):
+    x = data.x
+    adj = to_dense_adj(
+        data.edge_index,
+        edge_attr=data.edge_attr if 'edge_attr' in data else None,
+        max_num_nodes=x.shape[0]
+    ).squeeze(0)
+    mask = th.ones(
+        x.shape[0],
+        device=x.device,
+        dtype=th.bool
+    )
+
+    return DenseData(x, adj.to(torch.float), mask)
+
+
 class DenseGraphDataset(Dataset):
 
     """
     This class is wrapper of a pygDataset.
     """
 
-    def __init__(self, pyg_dataset: pygDataset):
+    def __init__(self, pyg_dataset: pygDataset, get_dense_data_fun=_get_dense_graph, get_y_fun=_get_y):
         self._pyg_dataset = pyg_dataset
 
         self.data = []
         self.targets = []
         for el in self._pyg_dataset:
-            el_dict = el.to_dict()
-            x = el_dict.pop('x')
-            adj = to_dense_adj(
-                el_dict.pop('edge_index'),
-                edge_attr=el_dict.pop('edge_attr', None),
-                max_num_nodes=x.shape[0]
-            ).squeeze(0)
-            mask = th.ones(
-                x.shape[0],
-                device=x.device,
-                dtype=th.bool
-            )
-
-            y = el_dict.pop('y')
-
-            # we ignore all the other keys
-            # remaining_keys = list(sorted(el_dict.keys()))
-            # for k in remaining_keys:
-                # Concatenate remaining attributes on x
-            #    x = th.cat((x, el_dict[k]), dim=1)
-
-            self.data.append(
-                DenseData(
-                    x,
-                    adj.to(torch.float),
-                    mask)
-            )
-            self.targets.append(y.squeeze(0))
+            self.data.append(get_dense_data_fun(el))
+            self.targets.append(get_y_fun(el))
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, idx):
         return self.data[idx], self.targets[idx]
+
