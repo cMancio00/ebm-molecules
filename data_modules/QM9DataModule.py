@@ -12,15 +12,11 @@ class QM9DataModule(pl.LightningDataModule):
 
     MAX_SAMPLES = 130831
 
-    def __init__(self, data_dir: str =  "./datasets/QM9/",
+    def __init__(self, data_dir: str = "./datasets/QM9/",
                  batch_size: int = 32,
                  num_workers: int = 4,
                  num_samples: int = MAX_SAMPLES,
-                 properties: List[int] = [
-                     MoleculeProperty.DIPOLE_MOMENT.value,
-                     MoleculeProperty.HOMO_ENERGY.value
-                 ]
-                 ):
+                 properties: List[int] = None):
 
         super().__init__()
         self.data_dir = data_dir
@@ -32,7 +28,13 @@ class QM9DataModule(pl.LightningDataModule):
         else:
             self.num_samples = num_samples
 
-        self.properties = properties
+        if properties is None:
+            self.properties = [
+                     MoleculeProperty.DIPOLE_MOMENT.value,
+                     MoleculeProperty.HOMO_ENERGY.value
+                 ]
+        else:
+            self.properties = properties
 
         self.data_train = None
         self.data_val = None
