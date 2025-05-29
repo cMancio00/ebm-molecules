@@ -1,10 +1,11 @@
-from typing import Tuple
+from typing import Tuple, List
 import lightning as pl
 from torch_geometric.datasets import QM9
 from torch_geometric.data import Data
 import torch
 from torch.utils.data import DataLoader, random_split
 from utils.graph import dense_collate_fn, DenseData
+from utils.qm9_utils import discretize_labels, MoleculeProperty
 
 
 class QM9DataModule(pl.LightningDataModule):
@@ -14,7 +15,13 @@ class QM9DataModule(pl.LightningDataModule):
     def __init__(self, data_dir: str =  "./datasets/QM9/",
                  batch_size: int = 32,
                  num_workers: int = 4,
-                 num_samples: int = MAX_SAMPLES):
+                 num_samples: int = MAX_SAMPLES,
+                 properties: List[int] = [
+                     MoleculeProperty.DIPOLE_MOMENT.value,
+                     MoleculeProperty.HOMO_ENERGY.value
+                 ]
+                 ):
+
         super().__init__()
         self.data_dir = data_dir
         self.batch_size = batch_size
@@ -24,6 +31,8 @@ class QM9DataModule(pl.LightningDataModule):
             self.num_samples = self.MAX_SAMPLES
         else:
             self.num_samples = num_samples
+
+        self.properties = properties
 
         self.data_train = None
         self.data_val = None
@@ -36,10 +45,19 @@ class QM9DataModule(pl.LightningDataModule):
     def setup(self, stage):
         #TODO: See if we can filter and transform before
         dataset_full = QM9(root=self.data_dir)
-        idx = torch.randint(0, self.MAX_SAMPLES, (self.num_samples,))
+        idx = torch.randperm(self.MAX_SAMPLES)[:self.num_samples]
+        labels = discretize_labels(dataset_full)
+
+        filtered_properties = [labels[i] for i in self.properties]
         dataset = []
-        for data in dataset_full[idx]:
-            dataset.append(densify_qm9(data))
+        for i in idx:
+            data = dataset_full[i]
+            y = []
+            for p in range(len(filtered_properties)):
+                y.append(filtered_properties[p][i])
+            y = torch.stack(y)
+
+            dataset.append(densify_qm9(data, y=y))
         self.data_train, self.data_val, self.data_test = random_split(dataset, [0.7, 0.2, 0.1])
 
     def train_dataloader(self):
@@ -54,7 +72,7 @@ class QM9DataModule(pl.LightningDataModule):
         return DataLoader(self.data_test, batch_size=self.batch_size, num_workers=self.num_workers,
                           collate_fn=dense_collate_fn)
 
-def densify_qm9(data: Data) -> Tuple[DenseData, torch.Tensor]:
+def densify_qm9(data: Data, y: torch.Tensor) -> Tuple[DenseData, torch.Tensor]:
     x = data.x[:,:-6]
     x_dim = x.size(0)
     adj_3d = torch.zeros((x_dim, x_dim, 5))
@@ -75,5 +93,5 @@ def densify_qm9(data: Data) -> Tuple[DenseData, torch.Tensor]:
         device=x.device,
         dtype=torch.bool
     )
-    return DenseData(x=x, adj=adj_3d, mask=mask), torch.ones((1,), device=x.device)
+    return DenseData(x=x, adj=adj_3d, mask=mask), y
 

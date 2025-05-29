@@ -40,7 +40,7 @@ class MyTestCase(unittest.TestCase):
 
 
     def test_densify_gives_correct_bounds_encoding(self):
-        dense_molecule, _ = densify_qm9(self.molecule)
+        dense_molecule, _ = densify_qm9(self.molecule, y=torch.tensor((1,)))
         assert_that(dense_molecule.adj[0,0].tolist()).is_equal_to(NewBondType.NONE.value)
         assert_that(dense_molecule.adj[0,1].tolist()).is_equal_to(NewBondType.SINGLE.value)
         assert_that(dense_molecule.adj[0,2].tolist()).is_equal_to(NewBondType.DOUBLE.value)
@@ -50,8 +50,6 @@ class MyTestCase(unittest.TestCase):
         assert_that(dense_molecule.adj[2,0].tolist()).is_equal_to(NewBondType.DOUBLE.value)
         assert_that(dense_molecule.adj[2,1].tolist()).is_equal_to(NewBondType.NONE.value)
         assert_that(dense_molecule.adj[2,2].tolist()).is_equal_to(NewBondType.NONE.value)
-
-
 
 if __name__ == '__main__':
     unittest.main()
