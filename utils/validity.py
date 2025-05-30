@@ -81,11 +81,11 @@ def construct_mol(x, A, atomic_num_list):
         mol.AddAtom(Chem.Atom(int(atomic_num_list[atom])))
 
     # A (edge_type, num_node, num_node)
-    adj = np.argmax(A, axis=0)
+    adj = np.argmax(A, axis=2)
     adj = np.array(adj)
     adj = adj[atoms_exist, :][:, atoms_exist]
-    adj[adj == 3] = -1
-    adj += 1
+    # adj[adj == 3] = -1
+    # adj += 1
     for start, end in zip(*np.nonzero(adj)):
         if start > end:
             mol.AddBond(int(start), int(end), bond_decoder_m[adj[start, end]])
