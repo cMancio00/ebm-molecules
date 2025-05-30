@@ -15,7 +15,7 @@ model:
     init_args:
       max_len_buffer: 5000
   nn_model:
-    class_path: nn_models.gcn.GCN_Dense
+    class_path: nn_models.dgn.DenseGCN
     init_args:
       in_channels: 1
       hidden_channels_list: [10]
