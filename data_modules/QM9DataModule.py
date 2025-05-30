@@ -101,11 +101,15 @@ class QM9DataModule(pl.LightningDataModule):
 
         if properties is None:
             self.properties = [
-                     MoleculeProperty.DIPOLE_MOMENT.value,
+                     #MoleculeProperty.DIPOLE_MOMENT.value,
                      MoleculeProperty.HOMO_ENERGY.value
                  ]
         else:
             self.properties = properties
+
+        self.num_classes = 3
+        self.num_node_features = 4
+        self.num_edge_features = 4
 
         self.data_train = None
         self.data_val = None
@@ -122,8 +126,7 @@ class QM9DataModule(pl.LightningDataModule):
         properties using one-hot encoding with 3 classes (low, medium, high).
         The division is made by quantiles.
         """
-        mol_props = []
-        value = data.y[:, self.properties]
+        value = data.y[:, self.properties].squeeze(-1)
         low = self.quantile[0][self.properties]
         high = self.quantile[1][self.properties]
         discrete_prop: torch.Tensor = torch.ones_like(value, dtype=torch.long)
@@ -132,9 +135,7 @@ class QM9DataModule(pl.LightningDataModule):
 
         discrete_prop[low_mask] = 0
         discrete_prop[high_mask] = 2
-        discrete_prop = F.one_hot(discrete_prop, num_classes=3).transpose(-1, -2)
-        mol_props.append(discrete_prop)
-        return torch.cat(mol_props, dim=0)
+        return discrete_prop
 
     def setup(self, stage):
         dataset_full = MyQM9Datasets(root=self.data_dir)

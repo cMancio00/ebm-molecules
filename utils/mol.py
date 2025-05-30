@@ -53,7 +53,6 @@ def from_rdkit_mol(mol: rdkit.Chem.Mol) -> Union[Data, None]:
 
     x = one_hot(torch.tensor(type_idx), num_classes=len(ATOM_TYPE_2_ID))
 
-
     smiles = Chem.MolToSmiles(mol, isomericSmiles=True)
 
     data = Data(
@@ -64,6 +63,47 @@ def from_rdkit_mol(mol: rdkit.Chem.Mol) -> Union[Data, None]:
     )
 
     return data
+
+
+def to_rdkit_mol(x, adj, mask) -> Chem.Mol:
+    """
+    single graph to mol
+    :return:
+    """
+    # x has shape N x N_ATOMS
+    # adj has shape N x N x N_BONDS
+    # mask has shape N
+    x = torch.argmax(x, dim=-1)
+    x = x[mask]
+    adj = torch.argmax(adj, dim=-1)
+    adj = adj[mask, :][:, mask]
+
+    mol = Chem.RWMol()
+    N = x.shape[0]
+
+    for id in range(N):
+        atom_id = x[id].item()
+        mol.AddAtom(Chem.Atom(ID_2_ATOM_TYPE[atom_id]))
+
+    for start in range(N):
+        for end in range(N):
+            if start > end and adj[start, end] != 0:
+                bond_id = adj[start, end].item() - 1
+                mol.AddBond(start, end, ID_2_BOND_TYPE[bond_id])
+                # add formal charge to atom: e.g. [O+], [N+] [S+]
+                # not support [O-], [N-] [S-]  [NH+] etc.
+                flag, atomid_valence = _check_valency(mol)
+                if flag:
+                    continue
+                else:
+                    assert len(atomid_valence) == 2
+                    idx = atomid_valence[0]
+                    v = atomid_valence[1]
+                    an = mol.GetAtomWithIdx(idx).GetAtomicNum()
+                    if an in (7, 8, 16) and (v - ATOM_VALENCY[an]) == 1:
+                        mol.GetAtomWithIdx(idx).SetFormalCharge(1)
+
+    return mol
 
 
 def densify_mol(data: Data) -> DenseData:
@@ -90,70 +130,32 @@ def densify_mol(data: Data) -> DenseData:
     return DenseData(x=x, adj=adj_3d, mask=mask)
 
 
-def make_valid(data: DenseData) -> List[DenseData]:
+def make_valid(data: DenseData) -> DenseData :
     """
      Make the mol valid
     :param data: the molecule represented as graf
     :return:
     """
-    mol_list = to_rdkit_mol(data)
-    valid_data_list = []
-    for mol in mol_list:
-        # Chem.Kekulize(mol, clearAromaticFlags=True)
+    x_batch, adj_batch, mask_batch = data.x, data.adj, data.mask
+    new_x_batch = torch.zeros_like(x_batch)
+    new_adj_batch = torch.zeros_like(adj_batch)
+    new_mask_batch = torch.zeros_like(mask_batch)
+
+    #TODO: here we can check if it is a batch or not, and unsqueeze if necessary
+    assert x_batch.ndim == 3
+    BS = x_batch.shape[0]
+
+    for i in range(BS):
+        mol = to_rdkit_mol(x_batch[i], adj_batch[i], mask_batch[i])
         cmol = _correct_mol(mol)
         vcmol = _valid_mol_can_with_seg(cmol, largest_connected_comp=True)
         dense_data = densify_mol(from_rdkit_mol(vcmol))
-        valid_data_list.append(dense_data)
+        new_N = dense_data.x.shape[0]
+        new_x_batch[i, :new_N] = dense_data.x
+        new_adj_batch[i, :new_N, :new_N] = dense_data.adj
+        new_mask_batch[i, :new_N] = dense_data.mask
 
-    return valid_data_list
-
-
-def to_rdkit_mol(data: DenseData) -> List[Chem.Mol]:
-    """
-    :return:
-    """
-    x_batch, adj_batch, mask_batch = data.x, data.adj, data.mask
-    # x has shape BS x N x N_ATOMS
-    # adj has shape BS x N x N x N_BONDS
-    # mask has shape BS x N
-    x_batch = torch.argmax(x_batch, dim=-1)
-    adj_batch = torch.argmax(adj_batch, dim=-1)
-
-    BS = x_batch.shape[0]
-    out_mol_list = []
-
-    for i in range(BS):
-        mol = Chem.RWMol()
-        atoms = x_batch[i, mask_batch[i]]
-        N = atoms.shape[0]
-
-        for id in range(N):
-            atom_id = atoms[id].item()
-            mol.AddAtom(Chem.Atom(ID_2_ATOM_TYPE[atom_id]))
-
-        # A (edge_type, num_node, num_node)
-        adj = adj_batch[i, mask_batch[i], :][:, mask_batch[i]]
-
-        for start in range(N):
-            for end in range(N):
-                if start > end and adj[start, end] != 0:
-                    bond_id = adj[start, end].item() - 1
-                    mol.AddBond(start, end, ID_2_BOND_TYPE[bond_id])
-                    # add formal charge to atom: e.g. [O+], [N+] [S+]
-                    # not support [O-], [N-] [S-]  [NH+] etc.
-                    flag, atomid_valence = _check_valency(mol)
-                    if flag:
-                        continue
-                    else:
-                        assert len(atomid_valence) == 2
-                        idx = atomid_valence[0]
-                        v = atomid_valence[1]
-                        an = mol.GetAtomWithIdx(idx).GetAtomicNum()
-                        if an in (7, 8, 16) and (v - ATOM_VALENCY[an]) == 1:
-                            mol.GetAtomWithIdx(idx).SetFormalCharge(1)
-        out_mol_list.append(mol)
-
-    return out_mol_list
+    return DenseData(new_x_batch, new_adj_batch, new_mask_batch)
 
 
 def _valid_mol_can_with_seg(x, largest_connected_comp=True):

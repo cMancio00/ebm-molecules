@@ -35,4 +35,6 @@ def test_validity():
         x[0][2] = torch.tensor([0., 0., 0., 1.])
         data.x = x
 
-        make_valid(data)
+        out = make_valid(data)
+        for x in out:
+            assert x is not None
