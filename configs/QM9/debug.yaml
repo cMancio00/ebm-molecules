@@ -1,0 +1,44 @@
+seed_everything: 42
+model:
+  # hparams mcmc
+  mcmc_steps_tr: 20
+  mcmc_learning_rate_tr: 1.0
+  mcmc_steps_gen: 1024
+  mcmc_learning_rate_gen: 1.0
+  # hparams optimizer
+  alpha_penalty: 0.1
+  alpha_ce: 1
+  lr: 0.001
+  beta1: 0.0
+  sampler:
+    class_path: samplers.MolSampler
+    init_args:
+      max_len_buffer: 5000
+  nn_model:
+    class_path: nn_models.dgn.DenseGCN
+    init_args:
+      in_channels: 4
+      use_edge_types: True
+      hidden_channels_list: [10]
+      out_channels: 3
+data:
+  class_path: data_modules.QM9DataModule
+  init_args:
+    batch_size: 32
+    num_workers: 0
+    num_samples: 2000
+
+trainer:
+  accelerator: auto
+  devices: auto
+  max_epochs: 100
+  gradient_clip_val: 0.1
+  #callbacks:
+    #- class_path: callbacks.BufferSamplerCallback
+    #- class_path: callbacks.GenerateCallback
+    #- class_path: callbacks.PlotBatchCallback
+  logger:
+    class_path: TensorBoardLogger
+    init_args:
+      save_dir: .
+      name: graph_logs

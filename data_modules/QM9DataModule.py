@@ -9,7 +9,7 @@ import torch
 from torch.utils.data import DataLoader, random_split
 from utils.graph import dense_collate_fn, DenseData, DenseGraphDataset
 import torch.nn.functional as F
-from utils.mol import from_rdkit_mol, densify_molecule
+from utils.mol import from_rdkit_mol, densify_mol
 from tqdm import tqdm
 from rdkit import RDLogger
 
@@ -86,12 +86,10 @@ class MyQM9Datasets(QM9):
 
 class QM9DataModule(pl.LightningDataModule):
 
-    MAX_SAMPLES = 130831
-
     def __init__(self, data_dir: str = "./datasets/QM9/",
                  batch_size: int = 32,
                  num_workers: int = 4,
-                 num_samples: int = MAX_SAMPLES,
+                 num_samples: int = None,
                  properties: List[int] = None):
 
         super().__init__()
@@ -99,18 +97,19 @@ class QM9DataModule(pl.LightningDataModule):
         self.batch_size = batch_size
         self.num_workers = num_workers
 
-        if num_samples >= self.MAX_SAMPLES:
-            self.num_samples = self.MAX_SAMPLES
-        else:
-            self.num_samples = num_samples
+        self.num_samples = num_samples
 
         if properties is None:
             self.properties = [
-                     MoleculeProperty.DIPOLE_MOMENT.value,
+                     #MoleculeProperty.DIPOLE_MOMENT.value,
                      MoleculeProperty.HOMO_ENERGY.value
                  ]
         else:
             self.properties = properties
+
+        self.num_classes = 3
+        self.num_node_features = 4
+        self.num_edge_features = 4
 
         self.data_train = None
         self.data_val = None
@@ -127,8 +126,7 @@ class QM9DataModule(pl.LightningDataModule):
         properties using one-hot encoding with 3 classes (low, medium, high).
         The division is made by quantiles.
         """
-        mol_props = []
-        value = data.y[:, self.properties]
+        value = data.y[:, self.properties].squeeze(-1)
         low = self.quantile[0][self.properties]
         high = self.quantile[1][self.properties]
         discrete_prop: torch.Tensor = torch.ones_like(value, dtype=torch.long)
@@ -137,9 +135,7 @@ class QM9DataModule(pl.LightningDataModule):
 
         discrete_prop[low_mask] = 0
         discrete_prop[high_mask] = 2
-        discrete_prop = F.one_hot(discrete_prop, num_classes=3).transpose(-1, -2)
-        mol_props.append(discrete_prop)
-        return torch.cat(mol_props, dim=0)
+        return discrete_prop
 
     def setup(self, stage):
         dataset_full = MyQM9Datasets(root=self.data_dir)
@@ -147,12 +143,12 @@ class QM9DataModule(pl.LightningDataModule):
         all_y = dataset_full.y
         self.quantile = [torch.quantile(all_y, q=0.25, dim=0), torch.quantile(all_y, q=0.75, dim=0)]
 
-        if self.num_samples < self.MAX_SAMPLES:
-            idx = torch.randperm(self.MAX_SAMPLES)[:self.num_samples]
+        if self.num_samples is not None and self.num_samples < len(dataset_full):
+            idx = torch.randperm(len(dataset_full))[:self.num_samples]
             dataset_full = dataset_full[idx]
 
         dataset_full = DenseGraphDataset(dataset_full,
-                                         get_dense_data_fun=densify_molecule,
+                                         get_dense_data_fun=densify_mol,
                                          get_y_fun=self.__get_discrete_label)
 
         self.data_train, self.data_val, self.data_test = random_split(dataset_full, [0.7, 0.2, 0.1])
