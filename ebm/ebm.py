@@ -5,8 +5,12 @@ from torchmetrics.functional import accuracy
 import torch.nn.functional as F
 import lightning as pl
 import torch.optim as optim
+
+from samplers import MolSampler
 from samplers.base import SamplerWithBuffer
 from torch import nn
+
+from metrics.mol_metrics import Uniqueness
 
 
 class DeepEnergyModel(pl.LightningModule):
@@ -68,6 +72,11 @@ class DeepEnergyModel(pl.LightningModule):
                  accuracy(pred, labels, task='multiclass',num_classes=positive_energy.shape[-1]),
                  batch_size=batch_size,
                  on_step=False, on_epoch=True)
+
+        if isinstance(self.sampler, MolSampler):
+            uniqueness = Uniqueness()
+            uniqueness.update(generated_batch=neg_samples, batch_size=batch_size)
+            self.log("uniqueness/training", uniqueness.compute(), batch_size=batch_size, on_step=False, on_epoch=True)
 
         return loss
 
