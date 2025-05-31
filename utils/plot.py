@@ -6,6 +6,9 @@ from matplotlib import pyplot as plt
 from utils.graph import DenseData
 from sklearn.cluster import SpectralClustering
 
+from utils.mol import to_rdkit_mol
+from rdkit.Chem import Draw
+
 
 def plot_graph(graph: DenseData, ax=None, n_communities=1):
     if ax is None:
@@ -42,8 +45,18 @@ def plot_graph(graph: DenseData, ax=None, n_communities=1):
     # draw the edges
     edge_list = []
     alpha_list = []
-    for u, v, weigth in g.edges.data('weight'):
+    for u, v, weight in g.edges.data('weight'):
         edge_list.append((u,v))
-        alpha_list.append(weigth)
+        alpha_list.append(weight)
 
     nx.draw_networkx_edges(g, pos=pos, edgelist=edge_list, alpha=alpha_list, ax=ax)
+
+
+def plot_molecule(mol: DenseData, ax: plt.Axes = None):
+    if ax is None:
+        _, ax = plt.subplots()
+    else:
+        ax.clear()
+    rdk_mol = to_rdkit_mol(mol.x, mol.adj, mol.mask)
+    ax.imshow(Draw.MolToImage(rdk_mol))
+    ax.axis('off')

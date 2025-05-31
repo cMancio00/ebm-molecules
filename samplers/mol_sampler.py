@@ -6,6 +6,7 @@ from utils.graph import DenseData, dense_collate_fn
 from .graph_sampler import GraphSampler
 from utils.plot import plot_graph
 from utils.mol import make_valid
+from utils.plot import plot_molecule
 
 
 class MolSampler(GraphSampler):
@@ -23,7 +24,4 @@ class MolSampler(GraphSampler):
         return make_valid(sample)
 
     def plot_sample(self, s: Tuple[DenseData, torch.Tensor], ax: plt.Axes) -> None:
-        # TODO: to plot with rdkit
-        pass
-        plot_graph(s[0], ax)
-        ax.set_title(f'Label {s[1]}')
+        plot_molecule(s[0], ax=ax)
