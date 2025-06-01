@@ -1,14 +1,8 @@
-from typing import Set
-
 import lightning as pl
 from lightning import Trainer, LightningModule
-from rdkit import Chem
+
 from torch.nn.utils.parametrizations import spectral_norm
 from torch.nn.utils.parametrize import is_parametrized
-
-from utils.mol import to_rdkit_mol
-from samplers import MolSampler
-
 
 class SpectralNormalizationCallback(pl.Callback):
 
