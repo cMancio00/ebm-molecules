@@ -124,7 +124,7 @@ class DeepEnergyModel(pl.LightningModule):
         if labels is None:
             if num_samples is None:
                 raise ValueError("Either num_samples or labels must be provided.")
-            labels = torch.randint(low=0, high=self.hparams.num_classes, size=(num_samples,), device=self.device)
+            labels = torch.randint(low=0, high=self.sampler.num_classes, size=(num_samples,), device=self.device)
 
         if steps is None:
             steps = self.hparams.mcmc_steps_gen
