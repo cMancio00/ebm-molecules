@@ -7,6 +7,7 @@ from torch.nn.utils.parametrizations import spectral_norm
 from torch.nn.utils.parametrize import is_parametrized
 
 from utils.mol import to_rdkit_mol
+from samplers import MolSampler
 
 
 class SpectralNormalizationCallback(pl.Callback):
@@ -40,6 +41,7 @@ class ComputeSmilesOnTrainingDatasetCallback(pl.Callback):
         return smiles
 
     def on_train_start(self, trainer: Trainer, model: LightningModule):
-        print("Computing Smiles on training dataset")
+        if not isinstance(model.sampler, MolSampler):
+            raise ValueError("Only MolSampler can have SMILES set")
+
         model.sampler.smile_set = self._compute_smiles(trainer.train_dataloader)
-        print(f"Unique Smiles: {len(model.sampler.smile_set)}")
