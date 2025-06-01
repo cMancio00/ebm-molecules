@@ -22,8 +22,9 @@ dependencies = [
     "matplotlib==3.10.0",
     "rich==13.9.4",
     "seaborn==0.13.2",
-    "opencv-python",
     "torch_geometric == 2.6.0",
+    "scikit-learn",
+    "rdkit",
     #This is how to install from a link, must provide the exact location of the wheel
     "pyg_lib @ https://data.pyg.org/whl/torch-2.5.0%2Bcu124/pyg_lib-0.4.0%2Bpt25cu124-cp312-cp312-linux_x86_64.whl",
     "torch_scatter @ https://data.pyg.org/whl/torch-2.5.0%2Bcu124/torch_scatter-2.1.2+pt25cu124-cp312-cp312-linux_x86_64.whl",
