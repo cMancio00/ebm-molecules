@@ -129,3 +129,21 @@ class DeepEnergyModel(pl.LightningModule):
         norms = grad_norm(self.nn_model, norm_type=2)
         self.log_dict(norms)
 
+    def generate_samples(self, num_samples: int=None, labels=None, starting_x=None, steps=None, step_size=None):
+        if num_samples is not None and labels is not None:
+            raise ValueError("Only one between num_samples and labels can be provided.")
+
+        if labels is None:
+            if num_samples is None:
+                raise ValueError("Either num_samples or labels must be provided.")
+            labels = torch.randint(low=0, high=self.hparams.num_classes, size=(num_samples,), device=self.device)
+
+        if steps is None:
+            steps = self.hparams.mcmc_steps_gen
+
+        if step_size is None:
+            step_size = self.hparams.mcmc_learning_rate_gen
+
+        return self.sampler.MCMC_generation(self.nn_model,
+                                            labels=labels, starting_x=starting_x,
+                                            steps=steps, step_size=step_size)
