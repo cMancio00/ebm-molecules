@@ -10,7 +10,7 @@ from samplers import MolSampler
 from samplers.base import SamplerWithBuffer
 from torch import nn
 
-from metrics.mol_metrics import Uniqueness
+from metrics.mol_metrics import Uniqueness, Novelty
 
 
 class DeepEnergyModel(pl.LightningModule):
@@ -77,6 +77,10 @@ class DeepEnergyModel(pl.LightningModule):
             uniqueness = Uniqueness()
             uniqueness.update(generated_batch=neg_samples, batch_size=batch_size)
             self.log("uniqueness/training", uniqueness.compute(), batch_size=batch_size, on_step=False, on_epoch=True)
+
+            novelty = Novelty()
+            novelty.update(generated_batch=neg_samples, training_smiles=self.sampler.smile_set, batch_size=batch_size)
+            self.log("novelty/training", novelty.compute(), batch_size=batch_size, on_step=False, on_epoch=True)
 
         return loss
 
