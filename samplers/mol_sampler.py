@@ -17,6 +17,7 @@ class MolSampler(GraphSampler):
         self.num_node_features = None
         self.num_edge_features = None
         self.max_num_nodes = max_num_nodes
+        self.smile_set  = None
 
     def _MCMC_generation(self, model: nn.Module, steps: int, step_size: float, labels: torch.Tensor,
                          starting_x: DenseData) -> DenseData:

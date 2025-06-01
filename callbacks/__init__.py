@@ -1,2 +1,2 @@
-from .others import SpectralNormalizationCallback
+from .others import SpectralNormalizationCallback, ComputeSmilesOnTrainingDatasetCallback
 from .plot_callbacks import PlotBatchCallback, BufferSamplerCallback, GenerateCallback
