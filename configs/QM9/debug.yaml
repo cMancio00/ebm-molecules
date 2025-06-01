@@ -37,7 +37,10 @@ trainer:
     - class_path: callbacks.BufferSamplerCallback
     - class_path: callbacks.GenerateCallback
     - class_path: callbacks.PlotBatchCallback
-    - class_path: callbacks.ComputeSmilesOnTrainingDatasetCallback
+    - class_path: callbacks.ComputeMolMetricsCallback
+      init_args:
+        mol_to_generate: 100
+
   logger:
     class_path: TensorBoardLogger
     init_args:
