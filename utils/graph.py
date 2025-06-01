@@ -1,9 +1,9 @@
 from dataclasses import dataclass
-from typing import Tuple, List
+from typing import Tuple, List, Union
 import torch
 import torch as th
 from torch._C._nn import pad
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, Subset
 from torch_geometric.data import Dataset as pygDataset
 from torch_geometric.utils import to_dense_adj
 
@@ -79,7 +79,7 @@ class DenseGraphDataset(Dataset):
     This class is wrapper of a pygDataset.
     """
 
-    def __init__(self, pyg_dataset: pygDataset, get_dense_data_fun=None, get_y_fun=None):
+    def __init__(self, pyg_dataset: Union[pygDataset, Subset[pygDataset]], get_dense_data_fun=None, get_y_fun=None):
         self._pyg_dataset = pyg_dataset
 
         if get_dense_data_fun is None:

@@ -116,6 +116,7 @@ class QM9DataModule(pl.LightningDataModule):
         self.data_test = None
 
         self.quantile = None
+        self.training_smiles = set()
 
     def prepare_data(self):
         MyQM9Datasets(root=self.data_dir)
@@ -147,11 +148,25 @@ class QM9DataModule(pl.LightningDataModule):
             idx = torch.randperm(len(dataset_full))[:self.num_samples]
             dataset_full = dataset_full[idx]
 
-        dataset_full = DenseGraphDataset(dataset_full,
+        self.data_train, self.data_val, self.data_test = random_split(dataset_full, [0.7, 0.2, 0.1])
+
+        smiles = set()
+        for i in range(len(self.data_train)):
+            smiles.add(self.data_train[i].smiles)
+
+        self.training_smiles = smiles
+
+        # TODO: Can this operation simplified with a list comprehension?
+        self.data_train = DenseGraphDataset(self.data_train,
+                                         get_dense_data_fun=densify_mol,
+                                         get_y_fun=self.__get_discrete_label)
+        self.data_val = DenseGraphDataset(self.data_val,
+                                         get_dense_data_fun=densify_mol,
+                                         get_y_fun=self.__get_discrete_label)
+        self.data_test = DenseGraphDataset(self.data_test,
                                          get_dense_data_fun=densify_mol,
                                          get_y_fun=self.__get_discrete_label)
 
-        self.data_train, self.data_val, self.data_test = random_split(dataset_full, [0.7, 0.2, 0.1])
 
     def train_dataloader(self):
         return DataLoader(self.data_train, batch_size=self.batch_size, drop_last=True, shuffle=True, pin_memory=True,
