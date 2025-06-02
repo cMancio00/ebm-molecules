@@ -95,6 +95,18 @@ class DeepEnergyModel(pl.LightningModule):
 
         return cross_entropy
 
+    def test_step(self, batch, batch_idx):
+        x, labels = batch
+        positive_energy: torch.Tensor = self.nn_model(x)
+        batch_size, num_classes = positive_energy.shape
+        cross_entropy: Tensor = F.cross_entropy(positive_energy, labels)
+        pred = positive_energy.argmax(dim=-1)
+
+        self.log("accuracy/test", accuracy(pred, labels, task='multiclass', num_classes=num_classes),
+                 batch_size=batch_size, on_step=False, on_epoch=True)
+
+        return cross_entropy
+
     def on_load_checkpoint(self, checkpoint):
         state_dict = checkpoint["state_dict"]
         new_state_dict = {}
