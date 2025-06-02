@@ -101,8 +101,8 @@ class QM9DataModule(pl.LightningDataModule):
 
         if properties is None:
             self.properties = [
-                     #MoleculeProperty.DIPOLE_MOMENT.value,
-                     MoleculeProperty.HOMO_ENERGY.value
+                     MoleculeProperty.DIPOLE_MOMENT.value,
+                     # MoleculeProperty.HOMO_ENERGY.value
                  ]
         else:
             self.properties = properties
@@ -142,7 +142,7 @@ class QM9DataModule(pl.LightningDataModule):
         dataset_full = MyQM9Datasets(root=self.data_dir)
         # compute quantile
         all_y = dataset_full.y
-        self.quantile = [torch.quantile(all_y, q=0.25, dim=0), torch.quantile(all_y, q=0.75, dim=0)]
+        self.quantile = [torch.quantile(all_y, q=0.33, dim=0), torch.quantile(all_y, q=0.66, dim=0)]
 
         if self.num_samples is not None and self.num_samples < len(dataset_full):
             idx = torch.randperm(len(dataset_full))[:self.num_samples]
