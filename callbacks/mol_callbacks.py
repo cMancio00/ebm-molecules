@@ -9,7 +9,7 @@ class ComputeMolMetricsCallback(Callback):
         super().__init__()
         self.mol_to_generate = mol_to_generate
 
-    def on_fit_end(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
+    def on_test_end(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
         mols = pl_module.generate_samples(self.mol_to_generate)
 
         if not isinstance(pl_module.sampler, MolSampler):
