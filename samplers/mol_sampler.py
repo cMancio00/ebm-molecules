@@ -19,9 +19,11 @@ class MolSampler(GraphSampler):
         self.max_num_nodes = max_num_nodes
 
     def _MCMC_generation(self, model: nn.Module, steps: int, step_size: float, labels: torch.Tensor,
-                         starting_x: DenseData) -> DenseData:
-        sample = super()._MCMC_generation(model, steps, step_size, labels, starting_x)
-        return make_valid(sample)
+                         starting_x: DenseData, is_training) -> DenseData:
+        sample = super()._MCMC_generation(model, steps, step_size, labels, starting_x, is_training)
+        if not is_training:
+            sample = make_valid(sample)
+        return sample
 
     def plot_sample(self, s: Tuple[DenseData, torch.Tensor], ax: plt.Axes) -> None:
         plot_molecule(s[0], ax=ax)

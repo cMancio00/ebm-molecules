@@ -11,7 +11,8 @@ class ImageSampler(SamplerWithBuffer):
         super().__init__(*args, **kwargs)
         self.img_shape = None
 
-    def _MCMC_generation(self, model: nn.Module, steps: int, step_size: float, labels: torch.Tensor, starting_x: Any) -> Any:
+    def _MCMC_generation(self, model: nn.Module, steps: int, step_size: float, labels: torch.Tensor, starting_x: Any,
+                         is_training) -> Any:
 
         x = starting_x
         x.detach_()
