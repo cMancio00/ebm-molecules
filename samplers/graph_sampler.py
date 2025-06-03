@@ -11,8 +11,8 @@ def _normalize_graph(adj):
     # make symmetric
     new_adj = (adj + torch.transpose(adj, 1, 2))
     new_adj.div_(2)
-    # clamp between 0 and 1
-    new_adj.clamp_(0, 1)
+    # clamp between 0 and   1
+    new_adj.clamp_(1e-4, 1)
     # remove self loops
     torch.diagonal(new_adj, dim1=1, dim2=2).zero_()
     return new_adj
@@ -26,7 +26,8 @@ class GraphSampler(SamplerWithBuffer):
         self.num_edge_features = None
         self.max_num_nodes = max_num_nodes
 
-    def _MCMC_generation(self, model: nn.Module, steps: int, step_size: float, labels: torch.Tensor, starting_x: Any) -> Any:
+    def _MCMC_generation(self, model: nn.Module, steps: int, step_size: float, labels: torch.Tensor,
+                         starting_x: DenseData, is_training) -> DenseData:
         """
         Function for generating new tensors via MCMC, given a model for :math:`E_{\\theta}`
         The MCMC algorith perform the following update:
@@ -41,7 +42,7 @@ class GraphSampler(SamplerWithBuffer):
         :param step_size: Learning rate :math:`\varepsilon`
         :return: Sampled Batch from the Energy distribution
         """
-        sample: DenseData = starting_x
+        sample = starting_x
         sample.x.requires_grad_()
 
         sample.adj.requires_grad_()
@@ -83,7 +84,9 @@ class GraphSampler(SamplerWithBuffer):
 
         y = torch.randint(0, self.num_classes, size=(batch_size,), device=device)
         x = 2 * torch.randn((batch_size, self.max_num_nodes, self.num_node_features), device=device)
-        adj = 0.1 + 0.1 * torch.randn((batch_size, self.max_num_nodes, self.max_num_nodes), device=device)
+        adj = 0.1 + 0.1 * torch.randn((batch_size, self.max_num_nodes, self.max_num_nodes, self.num_edge_features),
+                                      device=device)
+        adj = adj.squeeze(-1)
         adj = _normalize_graph(adj)
         mask = torch.ones((batch_size, self.max_num_nodes), dtype=torch.bool, device=device)
 
@@ -104,5 +107,5 @@ class GraphSampler(SamplerWithBuffer):
 class GraphSBMSampler(GraphSampler):
 
     def plot_sample(self, s: Tuple[DenseData, torch.Tensor], ax: plt.Axes) -> None:
-        plot_graph(s[0], ax, n_communities = (s[1].item() + 1))
+        plot_graph(s[0], ax, n_communities=(s[1].item() + 1))
         ax.set_title(f'Label {s[1]}')

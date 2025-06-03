@@ -78,14 +78,13 @@ class SamplerWithBuffer(nn.Module):
         had_gradients_enabled = torch.is_grad_enabled()
         torch.set_grad_enabled(True)
 
-
         batch_size = labels.shape[0]
         device = labels.device
 
         if starting_x is None:
             starting_x, _ = self.generate_random_batch(batch_size, device, collate=True)
 
-        generated_batch = self._MCMC_generation(model, steps, step_size, labels, starting_x)
+        generated_batch = self._MCMC_generation(model, steps, step_size, labels, starting_x, is_training)
 
         # Reactivate gradients for parameters for training
         for p in model.parameters():
@@ -98,7 +97,7 @@ class SamplerWithBuffer(nn.Module):
         return generated_batch
 
     def _MCMC_generation(self, model: nn.Module, steps: int, step_size: float, labels: torch.Tensor,
-                         starting_x: Any) -> Tuple[Any, torch.Tensor]:
+                         starting_x: Any, is_training: bool) -> Tuple[Any, torch.Tensor]:
         """
         Function for generating new tensors via MCMC, given a model for :math:`E_{\\theta}`
         The MCMC algorith perform the following update:

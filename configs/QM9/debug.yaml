@@ -11,21 +11,22 @@ model:
   lr: 0.001
   beta1: 0.0
   sampler:
-    class_path: samplers.GraphSBMSampler
+    class_path: samplers.MolSampler
     init_args:
       max_len_buffer: 5000
   nn_model:
     class_path: nn_models.dgn.DenseGCN
     init_args:
-      in_channels: 1
+      in_channels: 4
+      use_edge_types: True
       hidden_channels_list: [10]
-      out_channels: 2
+      out_channels: 3
 data:
-  class_path: data_modules.SBMDataModule
+  class_path: data_modules.QM9DataModule
   init_args:
-    name: easy
-    batch_size: 32
-    num_workers: 0
+    batch_size: 64
+    num_workers: 8
+    num_samples: 3000
 
 trainer:
   accelerator: auto
@@ -35,9 +36,13 @@ trainer:
   callbacks:
     - class_path: callbacks.BufferSamplerCallback
     - class_path: callbacks.GenerateCallback
-    #- class_path: callbacks.PlotBatchCallback
+    - class_path: callbacks.PlotBatchCallback
+    - class_path: callbacks.ComputeMolMetricsCallback
+      init_args:
+        mol_to_generate: 100
+
   logger:
     class_path: TensorBoardLogger
     init_args:
       save_dir: .
-      name: graph_logs
+      name: mol_logs
