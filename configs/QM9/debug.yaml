@@ -25,7 +25,7 @@ data:
   class_path: data_modules.QM9DataModule
   init_args:
     batch_size: 64
-    num_workers: 8
+    num_workers: 0
     num_samples: 3000
 
 trainer:

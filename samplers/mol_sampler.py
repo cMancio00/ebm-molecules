@@ -11,6 +11,8 @@ from utils.plot import plot_molecule
 
 class MolSampler(GraphSampler):
 
+    NODE_FEATURES_INTERVAL = (1e-4, 1)
+
     def __init__(self, max_num_nodes=9, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # TODO: ???
