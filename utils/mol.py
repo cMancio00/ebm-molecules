@@ -70,6 +70,8 @@ def to_rdkit_mol(x, adj, mask) -> Chem.Mol:
     single graph to mol
     :return:
     """
+    RDLogger.DisableLog('rdApp.*')
+
     # x has shape N x N_ATOMS
     # adj has shape N x N x N_BONDS
     # mask has shape N
@@ -190,7 +192,8 @@ def _check_valency(mol):
         atomid_valence = list(map(int, re.findall(r'\d+', e_sub)))
         out = (False, atomid_valence)
     finally:
-        RDLogger.EnableLog('rdApp.*')
+        pass
+        # RDLogger.EnableLog('rdApp.*')
 
     return out
 

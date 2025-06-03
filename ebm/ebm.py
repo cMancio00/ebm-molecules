@@ -5,8 +5,10 @@ from torchmetrics.functional import accuracy
 import torch.nn.functional as F
 import lightning as pl
 import torch.optim as optim
+
 from samplers.base import SamplerWithBuffer
 from torch import nn
+
 
 
 class DeepEnergyModel(pl.LightningModule):
@@ -68,7 +70,6 @@ class DeepEnergyModel(pl.LightningModule):
                  accuracy(pred, labels, task='multiclass',num_classes=positive_energy.shape[-1]),
                  batch_size=batch_size,
                  on_step=False, on_epoch=True)
-
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -90,6 +91,18 @@ class DeepEnergyModel(pl.LightningModule):
         #self.log('val_contrastive_divergence', loss, batch_size=batch_size, on_step=False, on_epoch=True)
         #self.log("Cross Entropy Validation", cross_entropy, batch_size=batch_size, on_step=False, on_epoch=True)
         self.log("accuracy/validation", accuracy(pred, labels, task='multiclass', num_classes=num_classes),
+                 batch_size=batch_size, on_step=False, on_epoch=True)
+
+        return cross_entropy
+
+    def test_step(self, batch, batch_idx):
+        x, labels = batch
+        positive_energy: torch.Tensor = self.nn_model(x)
+        batch_size, num_classes = positive_energy.shape
+        cross_entropy: Tensor = F.cross_entropy(positive_energy, labels)
+        pred = positive_energy.argmax(dim=-1)
+
+        self.log("accuracy/test", accuracy(pred, labels, task='multiclass', num_classes=num_classes),
                  batch_size=batch_size, on_step=False, on_epoch=True)
 
         return cross_entropy
@@ -116,3 +129,21 @@ class DeepEnergyModel(pl.LightningModule):
         norms = grad_norm(self.nn_model, norm_type=2)
         self.log_dict(norms)
 
+    def generate_samples(self, num_samples: int=None, labels=None, starting_x=None, steps=None, step_size=None):
+        if num_samples is not None and labels is not None:
+            raise ValueError("Only one between num_samples and labels can be provided.")
+
+        if labels is None:
+            if num_samples is None:
+                raise ValueError("Either num_samples or labels must be provided.")
+            labels = torch.randint(low=0, high=self.sampler.num_classes, size=(num_samples,), device=self.device)
+
+        if steps is None:
+            steps = self.hparams.mcmc_steps_gen
+
+        if step_size is None:
+            step_size = self.hparams.mcmc_learning_rate_gen
+
+        return self.sampler.MCMC_generation(self.nn_model,
+                                            labels=labels, starting_x=starting_x,
+                                            steps=steps, step_size=step_size)

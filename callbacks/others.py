@@ -1,8 +1,8 @@
 import lightning as pl
 from lightning import Trainer, LightningModule
+
 from torch.nn.utils.parametrizations import spectral_norm
 from torch.nn.utils.parametrize import is_parametrized
-
 
 class SpectralNormalizationCallback(pl.Callback):
 

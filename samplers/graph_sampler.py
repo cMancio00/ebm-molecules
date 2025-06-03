@@ -26,7 +26,8 @@ class GraphSampler(SamplerWithBuffer):
         self.num_edge_features = None
         self.max_num_nodes = max_num_nodes
 
-    def _MCMC_generation(self, model: nn.Module, steps: int, step_size: float, labels: torch.Tensor, starting_x: DenseData) -> DenseData:
+    def _MCMC_generation(self, model: nn.Module, steps: int, step_size: float, labels: torch.Tensor,
+                         starting_x: DenseData, is_training) -> DenseData:
         """
         Function for generating new tensors via MCMC, given a model for :math:`E_{\\theta}`
         The MCMC algorith perform the following update:

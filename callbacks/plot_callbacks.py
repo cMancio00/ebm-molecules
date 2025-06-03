@@ -41,14 +41,15 @@ class GenerateCallback(pl.Callback):
         self.n_plot_during_generation = n_plot_during_generation
         self.every_n_epochs = every_n_epochs
 
-    def on_train_epoch_end(self, trainer: Trainer, pl_module: LightningModule):
+    #def on_train_epoch_end(self, trainer: Trainer, pl_module: LightningModule):
+    def on_validation_epoch_end(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule") -> None:
         """Called on train epoch end. Generates tensors from the model and save them in the Tensorboard
 
         Args:
             trainer (Trainer): Trainer to use
             pl_module (LightningModule): Model to use
         """
-        if trainer.current_epoch % self.every_n_epochs == 0:
+        if trainer.current_epoch % self.every_n_epochs == 0 and trainer.state.stage != 'sanity_check':
             num_classes = pl_module.sampler.num_classes
             device = pl_module.device
             labels = torch.arange(num_classes, device=device)
@@ -93,14 +94,15 @@ class BufferSamplerCallback(pl.Callback):
         self.num_rows = int(math.sqrt(num_samples))
         self.every_n_epochs = every_n_epochs
 
-    def on_train_epoch_end(self, trainer: Trainer, pl_module: LightningModule):
+    #def on_train_epoch_end(self, trainer: Trainer, pl_module: LightningModule):
+    def on_validation_epoch_end(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule") -> None:
         """Called on training epoch end. Samples from the MCMC buffer and saves the tensors to the Tensorboard
 
         Args:
             trainer (Trainer): _description_
             pl_module (LightningModule): _description_
         """
-        if trainer.current_epoch % self.every_n_epochs == 0:
+        if trainer.current_epoch % self.every_n_epochs == 0 and trainer.state.stage != 'sanity_check':
             idx_to_plot = random.sample(range(len(pl_module.sampler.buffer)), self.num_samples)
 
             data_list = [(pl_module.sampler.buffer[i][0].clone().cpu(), pl_module.sampler.buffer[i][1].clone().cpu())
@@ -118,10 +120,19 @@ class PlotBatchCallback(pl.Callback):
         self.num_cols = self.num_rows
         self.num_samples = self.num_rows * self.num_cols
 
-    def on_train_batch_start(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule", batch: Any, batch_idx: int
-                             ) -> None:
+    #def on_train_batch_start(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule", batch: Any, batch_idx: int
+    #                         ) -> None:
+    def on_validation_batch_start(
+        self,
+        trainer: "pl.Trainer",
+        pl_module: "pl.LightningModule",
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int = 0,
+    ) -> None:
 
-        if trainer.current_epoch % self.every_n_epochs == 0 and batch_idx == 0:
+        if (trainer.current_epoch % self.every_n_epochs == 0 and batch_idx == 0 and
+                trainer.state.stage != 'sanity_check'):
             x, y = batch
             x, y = x.clone().cpu(), y.clone().cpu()
             idx_to_plot = random.sample(range(len(x)), self.num_samples)
