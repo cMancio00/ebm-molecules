@@ -1,18 +1,44 @@
 import torch
 from torch import nn
-from torch_geometric.nn import Linear
 from torch_geometric.nn.dense import DenseGCNConv
 from torch_geometric.typing import OptTensor
+import torch.nn.functional as F
 
 
-class MultiEdgeDenseGCNConv(DenseGCNConv):
+class MultiEdgeDenseGCNConv(nn.Module):
     r"""
         DenseGCNConv with accept multi-dimensional adjacency matrix, i.e. A has shape N x N x F, but all the values are
         between 0 and 1
     """
 
-    def forward(self, x: torch.Tensor, adj: torch.Tensor, mask: OptTensor = None,
-                add_loop: bool = True) -> torch.Tensor:
+    def __init__(
+            self,
+            in_channels: int,
+            out_channels: int,
+            num_edge_types: int = 1,
+            concat_edge_types: bool = False,
+            bias: bool = True,
+    ):
+        super().__init__()
+        self.in_channels = in_channels
+        self.num_edge_types = num_edge_types
+        self.concat_edge_types = concat_edge_types
+        self.W = nn.Linear(self.in_channels, out_channels*num_edge_types, bias=False)
+        self.W0 = nn.Linear(self.in_channels, out_channels*num_edge_types, bias=bias)
+
+        if self.concat_edge_types:
+            self.out_channels = out_channels*num_edge_types
+        else:
+            self.out_channels = out_channels
+
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        r"""Resets all learnable parameters of the module."""
+        self.W.reset_parameters()
+        self.W0.reset_parameters()
+
+    def forward(self, x: torch.Tensor, adj: torch.Tensor, mask: OptTensor = None) -> torch.Tensor:
         r"""Forward pass.
 
         Args:
@@ -31,23 +57,30 @@ class MultiEdgeDenseGCNConv(DenseGCNConv):
                 not automatically add self-loops to the adjacency matrices.
                 (default: :obj:`True`)
         """
-        x = x.unsqueeze(0) if x.dim() == 2 else x
-        adj = adj.unsqueeze(0) if adj.dim() == 3 else adj
+        if x.dim() == 2:
+            # add batch dimension
+            x = x.unsqueeze(0)
+            adj = adj.unsqueeze(0)
+
+        if adj.dim() == 3:
+            # add edge type dimension
+            adj = adj.unsqueeze(-1)
+
         B, N, _, F = adj.size()  # has shape B x N x N x F
 
-        if add_loop:
-            adj = adj.clone()
-            idx = torch.arange(N, dtype=torch.long, device=adj.device)
-            adj[:, idx, idx, :] = 1 if not self.improved else 2
+        # normalize adj
+        deg_inv_sqrt = adj.sum(dim=2).clamp(min=1).pow(-0.5)  # has shape B x N x F
+        adj = deg_inv_sqrt.unsqueeze(1) * adj * deg_inv_sqrt.unsqueeze(2)  # has shape B x N x N x F
 
-        out = self.lin(x)
-        deg_inv_sqrt = adj.sum(dim=2).clamp(min=1).pow(-0.5) # has shape B x N x F
+        to_aggregate = self.W(x)  # has shae B x N x F*out_channels
 
-        adj = deg_inv_sqrt.unsqueeze(1) * adj * deg_inv_sqrt.unsqueeze(2) # has shape B x N x N x F
-        out = (adj.unsqueeze(-1) * out.view(B, 1, N, 1, -1)).sum(dim=(2, 3))  # has shape B x F x N x out_channels
+        out = (adj.unsqueeze(-1) * to_aggregate.view(B, 1, N, F, -1)).sum(dim=2)  # has shape B x N x F x out_channels
+        out = out + self.W0(x).view(B, N, F, -1)  # add self-loops
 
-        if self.bias is not None:
-            out = out + self.bias
+        if self.concat_edge_types:
+            out = out.view(B, N, -1)  # concatenate over edge_tpyes
+        else:
+            out = out.sum(dim=2)  # sum over edge_tpyes
 
         if mask is not None:
             out = out * mask.view(B, N, 1).to(x.dtype)
@@ -56,27 +89,27 @@ class MultiEdgeDenseGCNConv(DenseGCNConv):
 
 
 class DenseGCN(nn.Module):
-    def __init__(self, in_channels, hidden_channels_list, out_channels, use_edge_types=False):
+    def __init__(self, in_channels, hidden_channels_list, out_channels, num_edge_types=1, concat_edge_types=False):
         super().__init__()
 
-        conv_class = MultiEdgeDenseGCNConv if use_edge_types else DenseGCNConv
-
         self.conv_layers = nn.ModuleList()
-        self.conv_layers.append(conv_class(in_channels, hidden_channels_list[0]))
+        self.conv_layers.append(MultiEdgeDenseGCNConv(in_channels, hidden_channels_list[0],
+                                                      num_edge_types, concat_edge_types))
         for i in range(1, len(hidden_channels_list)):
-            self.conv_layers.append(conv_class(hidden_channels_list[i - 1], hidden_channels_list[i]))
+            self.conv_layers.append(MultiEdgeDenseGCNConv(self.conv_layers[-1].out_channels,
+                                                          hidden_channels_list[i],
+                                                          num_edge_types, concat_edge_types))
 
-        self.lin1 = Linear(hidden_channels_list[-1], hidden_channels_list[-1])
-        self.lin2 = Linear(hidden_channels_list[-1], out_channels)
-
-        self.SiLU = nn.SiLU()
+        last_out = self.conv_layers[-1].out_channels
+        self.lin1 = nn.Linear(last_out, last_out)
+        self.lin2 = nn.Linear(last_out, out_channels)
 
     def forward(self, in_data):
         x, adj, mask = in_data.x, in_data.adj, in_data.mask
 
         for c in self.conv_layers:
-            x = self.SiLU(c(x, adj, mask))
+            x = F.silu(c(x, adj, mask))
 
         x = x.mean(dim=1)
-        x = self.SiLU(self.lin1(x))
+        x = F.silu(self.lin1(x))
         return self.lin2(x)
