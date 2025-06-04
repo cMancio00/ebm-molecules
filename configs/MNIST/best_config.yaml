@@ -9,6 +9,7 @@ model:
   alpha_ce: 1
   lr: 0.0001
   beta1: 0.0
+  optimizer_type: adam
   sampler:
     class_path: samplers.ImageSampler
     init_args:
@@ -26,11 +27,11 @@ data:
   init_args:
     batch_size: 256
     num_workers: 8
-    data_dir: '/data/castellana/ebm-molecules/datasets'
+    data_dir: './datasets'
 
 trainer:
   accelerator: gpu
-  devices: [2]
+  devices: auto
   max_epochs: 500
   gradient_clip_val: 0
   callbacks:
