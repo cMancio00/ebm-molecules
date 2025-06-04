@@ -90,7 +90,7 @@ class QM9DataModule(pl.LightningDataModule):
                  batch_size: int = 32,
                  num_workers: int = 4,
                  num_samples: int = None,
-                 properties: List[int] = None):
+                 properties: List[str] = None):
 
         super().__init__()
         self.data_dir = data_dir
@@ -102,10 +102,9 @@ class QM9DataModule(pl.LightningDataModule):
         if properties is None:
             self.properties = [
                      MoleculeProperty.DIPOLE_MOMENT.value,
-                     # MoleculeProperty.HOMO_ENERGY.value
                  ]
         else:
-            self.properties = properties
+            self.properties = [eval('MoleculeProperty.' + x).value for x in properties]
 
         self.num_classes = 3
         self.num_node_features = 4
