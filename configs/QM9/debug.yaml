@@ -2,9 +2,9 @@ seed_everything: 42
 model:
   # hparams mcmc
   mcmc_steps_tr: 20
-  mcmc_learning_rate_tr: 1.0
+  mcmc_learning_rate_tr: 10
   mcmc_steps_gen: 1024
-  mcmc_learning_rate_gen: 1.0
+  mcmc_learning_rate_gen: 0.1
   # hparams optimizer
   alpha_penalty: 0.1
   alpha_ce: 1
@@ -36,7 +36,7 @@ trainer:
   callbacks:
     - class_path: callbacks.BufferSamplerCallback
     - class_path: callbacks.GenerateCallback
-    - class_path: callbacks.PlotBatchCallback
+    # - class_path: callbacks.PlotBatchCallback
     - class_path: callbacks.ComputeMolMetricsCallback
       init_args:
         mol_to_generate: 100
@@ -44,5 +44,5 @@ trainer:
   logger:
     class_path: TensorBoardLogger
     init_args:
-      save_dir: .
-      name: mol_logs
+      save_dir: debug_logs
+      name: QM9
