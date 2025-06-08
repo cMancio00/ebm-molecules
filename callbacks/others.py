@@ -28,9 +28,6 @@ class SelfAccuracyCallback(pl.Callback):
         samples, labels = pl_module.sampler.get_negative_batch(model=pl_module.nn_model, batch_size=self.batch_size,
                                                                   steps=pl_module.hparams.mcmc_steps_gen,
                                                                   step_size=pl_module.hparams.mcmc_learning_rate_gen)
-
-        device = labels.device
-        # idx = torch.arange(self.batch_size, device=device)
         energy: Tensor = pl_module.nn_model(samples)
         pred = energy.argmax(dim=-1)
 
