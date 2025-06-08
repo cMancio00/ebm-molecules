@@ -1,3 +1,3 @@
 from .others import SpectralNormalizationCallback, SelfAccuracyCallback
-from .plot_callbacks import PlotBatchCallback, BufferSamplerCallback, GenerateCallback
+from .plot_callbacks import PlotBatchCallback, BufferSamplerCallback, GenerateCallback, ChangeClassCallback
 from .mol_callbacks import ComputeMolMetricsCallback

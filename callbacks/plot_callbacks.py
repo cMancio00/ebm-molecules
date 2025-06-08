@@ -152,3 +152,60 @@ class PlotBatchCallback(pl.Callback):
             f = _plot_data(pl_module.sampler.plot_sample, data_list, self.num_rows)
 
             trainer.logger.experiment.add_figure("Batch samples", f, global_step=trainer.current_epoch)
+
+class ChangeClassCallback(pl.Callback):
+    def __init__(
+            self,
+            n_plot_during_generation: int = 10,
+            samples_to_plot: int = 10,
+            batch_to_change: int = 1,
+            mcmc_steps_multiplier: int = 10):
+
+        super().__init__()
+        self.n_plot_during_generation = n_plot_during_generation
+        self.samples_to_plot = samples_to_plot
+        self.batch_to_change = batch_to_change
+        self.mcmc_steps_multiplier = mcmc_steps_multiplier
+
+    def on_test_batch_start(
+        self,
+        trainer: "pl.Trainer",
+        pl_module: "pl.LightningModule",
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int = 0,
+    ) -> None:
+        if batch_idx in range(self.batch_to_change):
+            num_classes = pl_module.sampler.num_classes
+
+            start_x, labels = batch
+            start_x = start_x[:self.samples_to_plot].clone()
+            labels = labels[:self.samples_to_plot].clone()
+
+            labels = (labels + 1) % num_classes
+
+            all_sample = [start_x.clone().cpu()]
+
+            n_steps = pl_module.hparams.mcmc_steps_gen * self.mcmc_steps_multiplier
+
+            mcmc_steps = n_steps // self.n_plot_during_generation
+
+            for _ in range(self.n_plot_during_generation):
+                start_x = pl_module.sampler.MCMC_generation(model=pl_module.nn_model,
+                                                            steps=mcmc_steps,
+                                                            step_size=pl_module.hparams.mcmc_learning_rate_gen,
+                                                            labels=labels,
+                                                            starting_x=start_x)
+                all_sample.append(start_x.clone().cpu())
+
+            n_cols = len(all_sample)
+            data_list = [(None, None) for _ in range(n_cols * num_classes)]
+            for j, s in enumerate(all_sample):
+                for i in range(num_classes):
+                    data_list[i * n_cols + j] = (s[i], torch.tensor(i, device='cpu'))
+
+
+            f = _plot_data(pl_module.sampler.plot_sample, data_list, pl_module.sampler.num_classes)
+            trainer.logger.experiment.add_figure(f"Change Class/test", f, global_step=batch_idx)
+
+
