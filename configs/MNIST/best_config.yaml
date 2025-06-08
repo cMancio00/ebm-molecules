@@ -37,9 +37,10 @@ trainer:
   callbacks:
     - class_path: callbacks.BufferSamplerCallback
     - class_path: callbacks.GenerateCallback
+    - class_path: callbacks.SelfAccuracyCallback
   logger:
     class_path: TensorBoardLogger
     init_args:
-      save_dir: .
-      name: MNIST_logs
-  profiler: simple
+      save_dir: logs
+      name: MNIST/train
+#  profiler: simple
