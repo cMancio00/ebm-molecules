@@ -201,8 +201,8 @@ class ChangeClassCallback(pl.Callback):
             n_cols = len(all_sample)
             data_list = [(None, None) for _ in range(n_cols * num_classes)]
             for j, s in enumerate(all_sample):
-                for i in range(num_classes):
-                    data_list[i * n_cols + j] = (s[i], torch.tensor(i, device='cpu'))
+                for i in range(len(labels)):
+                    data_list[i * n_cols + j] = (s[i], torch.tensor(labels[i], device='cpu'))
 
 
             f = _plot_data(pl_module.sampler.plot_sample, data_list, pl_module.sampler.num_classes)
