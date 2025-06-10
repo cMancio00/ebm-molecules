@@ -159,7 +159,7 @@ class ChangeClassCallback(pl.Callback):
             n_plot_during_generation: int = 10,
             samples_to_plot: int = 10,
             batch_to_change: int = 1,
-            mcmc_steps_multiplier: int = 10):
+            mcmc_steps_multiplier: float = 1.0):
 
         super().__init__()
         self.n_plot_during_generation = n_plot_during_generation
@@ -186,7 +186,7 @@ class ChangeClassCallback(pl.Callback):
 
             all_sample = [start_x.clone().cpu()]
 
-            n_steps = pl_module.hparams.mcmc_steps_gen * self.mcmc_steps_multiplier
+            n_steps = int(pl_module.hparams.mcmc_steps_gen * self.mcmc_steps_multiplier)
 
             mcmc_steps = n_steps // self.n_plot_during_generation
 
@@ -201,8 +201,8 @@ class ChangeClassCallback(pl.Callback):
             n_cols = len(all_sample)
             data_list = [(None, None) for _ in range(n_cols * num_classes)]
             for j, s in enumerate(all_sample):
-                for i in range(len(labels)):
-                    data_list[i * n_cols + j] = (s[i], torch.tensor(labels[i], device='cpu'))
+                for i in range(num_classes):
+                    data_list[i * n_cols + j] = (s[i], labels[i].clone().detach().cpu())
 
 
             f = _plot_data(pl_module.sampler.plot_sample, data_list, pl_module.sampler.num_classes)
