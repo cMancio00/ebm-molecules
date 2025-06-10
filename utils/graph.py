@@ -67,6 +67,7 @@ def dense_collate_fn(batch: List[Tuple[DenseData, th.Tensor]]) -> Tuple[DenseDat
     adj_stacked = th.cat(adj_list, dim=0)
     # TODO: dequantization with 2d gaussian convolution?
     adj_stacked.add_(0.1 * torch.randn_like(adj_stacked))
+    adj_stacked.clamp_(1e-4, 1)
     mask_stacked = th.cat(mask_list, dim=0)
     y_stacked = th.cat(y_list, dim=0)
 
