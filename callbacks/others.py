@@ -23,6 +23,7 @@ class SelfAccuracyCallback(pl.Callback):
         super().__init__()
         self.batch_size = batch_size
 
+    @torch.inference_mode(False)
     def on_test_epoch_end(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
 
         samples, labels = pl_module.sampler.get_negative_batch(model=pl_module.nn_model, batch_size=self.batch_size,

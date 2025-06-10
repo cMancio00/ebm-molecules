@@ -84,6 +84,7 @@ class GenerateCallback(pl.Callback):
             f = _plot_data(pl_module.sampler.plot_sample, data_list, pl_module.sampler.num_classes)
             trainer.logger.experiment.add_figure(f"Generation during Training", f, global_step=trainer.current_epoch)
 
+    @torch.inference_mode(False)
     def on_test_epoch_end(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
         for i in range(self.n_replica_during_test):
             data_list = _generate_grid_samples(trainer, pl_module, self.n_plot_during_generation)
@@ -153,20 +154,22 @@ class PlotBatchCallback(pl.Callback):
 
             trainer.logger.experiment.add_figure("Batch samples", f, global_step=trainer.current_epoch)
 
+
 class ChangeClassCallback(pl.Callback):
     def __init__(
             self,
             n_plot_during_generation: int = 10,
             samples_to_plot: int = 10,
-            batch_to_change: int = 1,
-            mcmc_steps_multiplier: int = 10):
+            batch_to_change: int = 1):
 
         super().__init__()
         self.n_plot_during_generation = n_plot_during_generation
         self.samples_to_plot = samples_to_plot
         self.batch_to_change = batch_to_change
-        self.mcmc_steps_multiplier = mcmc_steps_multiplier
+        # TODO: non ha molto senso prevedere un multipliers del numero specificato in precedenza.
+        # Se proprio vuoi cambiare il numero di passi, accetta un parametro con il nuovo numero.
 
+    @torch.inference_mode(False)
     def on_test_batch_start(
         self,
         trainer: "pl.Trainer",
@@ -186,7 +189,7 @@ class ChangeClassCallback(pl.Callback):
 
             all_sample = [start_x.clone().cpu()]
 
-            n_steps = pl_module.hparams.mcmc_steps_gen * self.mcmc_steps_multiplier
+            n_steps = pl_module.hparams.mcmc_steps_gen
 
             mcmc_steps = n_steps // self.n_plot_during_generation
 
@@ -199,13 +202,14 @@ class ChangeClassCallback(pl.Callback):
                 all_sample.append(start_x.clone().cpu())
 
             n_cols = len(all_sample)
-            data_list = [(None, None) for _ in range(n_cols * num_classes)]
+            labels = labels.cpu()
+            data_list = [(None, None) for _ in range(n_cols * self.samples_to_plot)]
             for j, s in enumerate(all_sample):
-                for i in range(len(labels)):
-                    data_list[i * n_cols + j] = (s[i], torch.tensor(labels[i], device='cpu'))
+                for i in range(self.samples_to_plot):
+                    data_list[i * n_cols + j] = (s[i], labels[i])
 
 
-            f = _plot_data(pl_module.sampler.plot_sample, data_list, pl_module.sampler.num_classes)
+            f = _plot_data(pl_module.sampler.plot_sample, data_list, self.samples_to_plot)
             trainer.logger.experiment.add_figure(f"Change Class/test", f, global_step=batch_idx)
 
 
