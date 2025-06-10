@@ -101,7 +101,8 @@ class QM9DataModule(pl.LightningDataModule):
 
         if properties is None:
             self.properties = [
-                     MoleculeProperty.DIPOLE_MOMENT.value,
+                     # MoleculeProperty.DIPOLE_MOMENT.value,
+                    MoleculeProperty.HOMO_ENERGY.value
                  ]
         else:
             self.properties = [eval('MoleculeProperty.' + x).value for x in properties]
