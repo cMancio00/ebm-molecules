@@ -2,7 +2,7 @@ model:
   # hparams mcmc
   mcmc_steps_tr: 20
   mcmc_learning_rate_tr: 10.0
-  mcmc_steps_gen: 1024
+  mcmc_steps_gen: 2048
   mcmc_learning_rate_gen: 1.0
   # hparams optimizer
   alpha_penalty: 0.1
@@ -39,6 +39,10 @@ trainer:
     - class_path: callbacks.GenerateCallback
     - class_path: callbacks.SelfAccuracyCallback
     - class_path: callbacks.ChangeClassCallback
+      init_args:
+        n_plot_during_generation: 15
+        samples_to_plot: 10
+        mcmc_steps_multiplier: 1
   logger:
     class_path: TensorBoardLogger
     init_args:

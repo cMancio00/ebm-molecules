@@ -23,21 +23,26 @@ model:
 data:
   class_path: data_modules.SBMDataModule
   init_args:
-    data_dir: '/data/castellana/ebm-molecules/datasets'
+    data_dir: './datasets'
     name: easy
     batch_size: 128
     num_workers: 0
 
 trainer:
-  accelerator: gpu
-  devices: [2]
-  max_epochs: 1000
+  accelerator: auto
+  devices: auto
+  max_epochs: 61
   gradient_clip_val: 0 #0.1
   callbacks:
     - class_path: callbacks.BufferSamplerCallback
     - class_path: callbacks.GenerateCallback
+    - class_path: callbacks.SelfAccuracyCallback
+#    - class_path: callbacks.ChangeClassCallback
+#      init_args:
+#        samples_to_plot: 2
+#        mcmc_steps_multiplier: 1
   logger:
     class_path: TensorBoardLogger
     init_args:
       save_dir: logs
-      name: SBM
+      name: SBM/train
