@@ -52,6 +52,7 @@ class ImageSampler(SamplerWithBuffer):
     def plot_sample(self, s: Tuple[torch.Tensor, torch.Tensor], ax: plt.Axes) -> None:
         img = s[0]
         low, high = img.min(), img.max()
-        img.sub_(low).div_(max(high - low, 1e-5))
+        img.sub_(low)
+        img.div_(max(high - low, 1e-5))
         ax.imshow(img.permute(1, 2, 0), cmap='gray', vmin=0, vmax=1)
         ax.set_title(f'Label {s[1]}')
