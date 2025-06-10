@@ -160,14 +160,14 @@ class ChangeClassCallback(pl.Callback):
             self,
             n_plot_during_generation: int = 10,
             samples_to_plot: int = 10,
-            batch_to_change: int = 1):
+            batch_to_change: int = 1,
+            mcmc_steps: None | int = None):
 
         super().__init__()
         self.n_plot_during_generation = n_plot_during_generation
         self.samples_to_plot = samples_to_plot
         self.batch_to_change = batch_to_change
-        # TODO: non ha molto senso prevedere un multipliers del numero specificato in precedenza.
-        # Se proprio vuoi cambiare il numero di passi, accetta un parametro con il nuovo numero.
+        self.mcmc_steps = mcmc_steps
 
     @torch.inference_mode(False)
     def on_test_batch_start(
@@ -178,6 +178,12 @@ class ChangeClassCallback(pl.Callback):
         batch_idx: int,
         dataloader_idx: int = 0,
     ) -> None:
+
+        if self.mcmc_steps is None:
+            n_steps = pl_module.hparams.mcmc_steps_gen
+        else:
+            n_steps = self.mcmc_steps
+
         if batch_idx in range(self.batch_to_change):
             num_classes = pl_module.sampler.num_classes
 
@@ -189,7 +195,7 @@ class ChangeClassCallback(pl.Callback):
 
             all_sample = [start_x.clone().cpu()]
 
-            n_steps = pl_module.hparams.mcmc_steps_gen
+            # n_steps = pl_module.hparams.mcmc_steps_gen
 
             mcmc_steps = n_steps // self.n_plot_during_generation
 
