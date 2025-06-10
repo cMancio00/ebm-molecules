@@ -2,14 +2,14 @@ seed_everything: 42
 model:
   # hparams mcmc
   mcmc_steps_tr: 20
-  mcmc_learning_rate_tr: 1.0
-  mcmc_steps_gen: 1024
-  mcmc_learning_rate_gen: 1.0
+  mcmc_learning_rate_tr: 0.1
+  mcmc_steps_gen: 128
+  mcmc_learning_rate_gen: 0.1
   # hparams optimizer
   optimizer_type: adam
-  alpha_penalty: 0
-  alpha_cd: 0
-  alpha_ce: 1
+  alpha_penalty: 0.1
+  alpha_cd: 1
+  alpha_ce: 2
   lr: 0.001
   beta1: 0.0
   sampler:
@@ -26,14 +26,14 @@ model:
 data:
   class_path: data_modules.QM9DataModule
   init_args:
-    data_dir: '/data/castellana/ebm-molecules/datasets/QM9'
+    data_dir: './datasets'
     batch_size: 128
     num_workers: 10
 
 trainer:
-  accelerator: gpu
-  devices: [3]
-  max_epochs: 100
+  accelerator: auto
+  devices: auto
+  max_epochs: 61
   gradient_clip_val: 0.1
   callbacks:
     - class_path: callbacks.BufferSamplerCallback
@@ -41,10 +41,16 @@ trainer:
     # - class_path: callbacks.PlotBatchCallback
     - class_path: callbacks.ComputeMolMetricsCallback
       init_args:
-        mol_to_generate: 10000
+        mol_to_generate: 1000
+    - class_path: callbacks.SelfAccuracyCallback
+    - class_path: callbacks.ChangeClassCallback
+      init_args:
+        n_plot_during_generation: 10
+        samples_to_plot: 5
+        mcmc_steps_multiplier: 1
 
   logger:
     class_path: TensorBoardLogger
     init_args:
-      save_dir: .
-      name: QM9_logs
+      save_dir: logs
+      name: QM9/train
