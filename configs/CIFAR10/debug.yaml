@@ -39,5 +39,5 @@ trainer:
   logger:
     class_path: TensorBoardLogger
     init_args:
-      save_dir: .
-      name: lightning_logs
+      save_dir: debug_logs
+      name: CIFAR10

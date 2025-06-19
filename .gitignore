@@ -4,3 +4,4 @@ build
 **logs
 !.gitignore
 experiments
+!.run

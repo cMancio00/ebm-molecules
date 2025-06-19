@@ -35,9 +35,10 @@ trainer:
   callbacks:
     - class_path: callbacks.BufferSamplerCallback
     - class_path: callbacks.GenerateCallback
-    #- class_path: callbacks.PlotBatchCallback
+    - class_path: callbacks.SelfAccuracyCallback
+    - class_path: callbacks.ChangeClassCallback
   logger:
     class_path: TensorBoardLogger
     init_args:
-      save_dir: .
-      name: graph_logs
+      save_dir: debug_logs
+      name: SBM

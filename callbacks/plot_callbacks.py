@@ -21,10 +21,38 @@ def _plot_data(func_to_plot, data_list, num_rows, subplot_size=(2, 2)):
 
     return f
 
+def _generate_grid_samples(trainer: "pl.Trainer", pl_module: "pl.LightningModule", n_plot_during_generation: int = 10) -> list[tuple[torch.tensor, torch.tensor]]:
+    num_classes = pl_module.sampler.num_classes
+    device = pl_module.device
+    labels = torch.arange(num_classes, device=device)
+
+    start_x, _ = pl_module.sampler.generate_random_batch(batch_size=labels.shape[0], device=device,
+                                                         collate=True)
+    all_sample = [start_x.clone().cpu()]
+
+    n_steps = pl_module.hparams.mcmc_steps_gen
+
+    mcmc_steps = n_steps // n_plot_during_generation
+
+    for _ in range(n_plot_during_generation):
+        start_x = pl_module.sampler.MCMC_generation(model=pl_module.nn_model,
+                                                    steps=mcmc_steps,
+                                                    step_size=pl_module.hparams.mcmc_learning_rate_gen,
+                                                    labels=labels,
+                                                    starting_x=start_x)
+        all_sample.append(start_x.clone().cpu())
+
+    n_cols = len(all_sample)
+    data_list = [(None, None) for _ in range(n_cols * num_classes)]
+    for j, s in enumerate(all_sample):
+        for i in range(num_classes):
+            data_list[i * n_cols + j] = (s[i], torch.tensor(i, device='cpu'))
+    return data_list
+
 
 class GenerateCallback(pl.Callback):
 
-    def __init__(self, n_plot_during_generation: int = 10, every_n_epochs: int = 5):
+    def __init__(self, n_plot_during_generation: int = 10, every_n_epochs: int = 5, n_replica_during_test: int = 5):
         """Uses MCMC to sample tensors from the model and logs them in the Tensorboard at the end
         of training epochs.
 
@@ -40,6 +68,7 @@ class GenerateCallback(pl.Callback):
         super().__init__()
         self.n_plot_during_generation = n_plot_during_generation
         self.every_n_epochs = every_n_epochs
+        self.n_replica_during_test = n_replica_during_test
 
     #def on_train_epoch_end(self, trainer: Trainer, pl_module: LightningModule):
     def on_validation_epoch_end(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule") -> None:
@@ -50,34 +79,18 @@ class GenerateCallback(pl.Callback):
             pl_module (LightningModule): Model to use
         """
         if trainer.current_epoch % self.every_n_epochs == 0 and trainer.state.stage != 'sanity_check':
-            num_classes = pl_module.sampler.num_classes
-            device = pl_module.device
-            labels = torch.arange(num_classes, device=device)
+            data_list = _generate_grid_samples(trainer, pl_module, self.n_plot_during_generation)
 
-            start_x, _ = pl_module.sampler.generate_random_batch(batch_size=labels.shape[0], device=device,
-                                                                 collate=True)
-            all_sample = [start_x.clone().cpu()]
-
-            n_steps = pl_module.hparams.mcmc_steps_gen
-
-            mcmc_steps = n_steps // self.n_plot_during_generation
-
-            for _ in range(self.n_plot_during_generation):
-                start_x = pl_module.sampler.MCMC_generation(model=pl_module.nn_model,
-                                                            steps=mcmc_steps,
-                                                            step_size=pl_module.hparams.mcmc_learning_rate_gen,
-                                                            labels=labels,
-                                                            starting_x=start_x)
-                all_sample.append(start_x.clone().cpu())
-
-            n_cols = len(all_sample)
-            data_list = [(None, None) for _ in range(n_cols * num_classes)]
-            for j, s in enumerate(all_sample):
-                for i in range(num_classes):
-                    data_list[i*n_cols + j] = (s[i], torch.tensor(i, device='cpu'))
-
-            f = _plot_data(pl_module.sampler.plot_sample, data_list, num_classes)
+            f = _plot_data(pl_module.sampler.plot_sample, data_list, pl_module.sampler.num_classes)
             trainer.logger.experiment.add_figure(f"Generation during Training", f, global_step=trainer.current_epoch)
+
+    @torch.inference_mode(False)
+    def on_test_epoch_end(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
+        for i in range(self.n_replica_during_test):
+            data_list = _generate_grid_samples(trainer, pl_module, self.n_plot_during_generation)
+
+            f = _plot_data(pl_module.sampler.plot_sample, data_list, pl_module.sampler.num_classes)
+            trainer.logger.experiment.add_figure(f"Best Checkpoint Generation Test", f, global_step=i)
 
 
 class BufferSamplerCallback(pl.Callback):
@@ -140,3 +153,69 @@ class PlotBatchCallback(pl.Callback):
             f = _plot_data(pl_module.sampler.plot_sample, data_list, self.num_rows)
 
             trainer.logger.experiment.add_figure("Batch samples", f, global_step=trainer.current_epoch)
+
+
+class ChangeClassCallback(pl.Callback):
+    def __init__(
+            self,
+            n_plot_during_generation: int = 10,
+            samples_to_plot: int = 10,
+            batch_to_change: int = 1,
+            mcmc_steps: None | int = None):
+
+        super().__init__()
+        self.n_plot_during_generation = n_plot_during_generation
+        self.samples_to_plot = samples_to_plot
+        self.batch_to_change = batch_to_change
+        self.mcmc_steps = mcmc_steps
+
+    @torch.inference_mode(False)
+    def on_test_batch_start(
+        self,
+        trainer: "pl.Trainer",
+        pl_module: "pl.LightningModule",
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int = 0,
+    ) -> None:
+
+        if self.mcmc_steps is None:
+            n_steps = pl_module.hparams.mcmc_steps_gen
+        else:
+            n_steps = self.mcmc_steps
+
+        if batch_idx in range(self.batch_to_change):
+            num_classes = pl_module.sampler.num_classes
+
+            start_x, labels = batch
+            start_x = start_x[:self.samples_to_plot].clone()
+            labels = labels[:self.samples_to_plot].clone()
+
+            labels = (labels + 1) % num_classes
+
+            all_sample = [start_x.clone().cpu()]
+
+            # n_steps = pl_module.hparams.mcmc_steps_gen
+
+            mcmc_steps = n_steps // self.n_plot_during_generation
+
+            for _ in range(self.n_plot_during_generation):
+                start_x = pl_module.sampler.MCMC_generation(model=pl_module.nn_model,
+                                                            steps=mcmc_steps,
+                                                            step_size=pl_module.hparams.mcmc_learning_rate_gen,
+                                                            labels=labels,
+                                                            starting_x=start_x)
+                all_sample.append(start_x.clone().cpu())
+
+            n_cols = len(all_sample)
+            labels = labels.cpu()
+            data_list = [(None, None) for _ in range(n_cols * self.samples_to_plot)]
+            for j, s in enumerate(all_sample):
+                for i in range(self.samples_to_plot):
+                    data_list[i * n_cols + j] = (s[i], labels[i])
+
+
+            f = _plot_data(pl_module.sampler.plot_sample, data_list, self.samples_to_plot)
+            trainer.logger.experiment.add_figure(f"Change Class/test", f, global_step=batch_idx)
+
+

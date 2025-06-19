@@ -129,7 +129,7 @@ class DeepEnergyModel(pl.LightningModule):
         norms = grad_norm(self.nn_model, norm_type=2)
         self.log_dict(norms)
 
-    def generate_samples(self, num_samples: int=None, labels=None, starting_x=None, steps=None, step_size=None):
+    def generate_samples(self, num_samples=None, labels=None, starting_x=None, steps=None, step_size=None):
         if num_samples is not None and labels is not None:
             raise ValueError("Only one between num_samples and labels can be provided.")
 

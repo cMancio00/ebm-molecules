@@ -32,7 +32,7 @@ if __name__ == '__main__':
         seed_everything_default=42,
         trainer_defaults={
             'callbacks': [
-                ModelCheckpoint(save_top_k=1,auto_insert_metric_name=True,
+                ModelCheckpoint(save_top_k=2,save_last=True,auto_insert_metric_name=True, mode="max",
                                 monitor="accuracy/validation"),
                 LearningRateMonitor("epoch")
             ]

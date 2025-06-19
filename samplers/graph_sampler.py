@@ -7,18 +7,10 @@ from .base import SamplerWithBuffer
 from utils.plot import plot_graph
 
 
-def _normalize_graph(adj):
-    # make symmetric
-    new_adj = (adj + torch.transpose(adj, 1, 2))
-    new_adj.div_(2)
-    # clamp between 0 and   1
-    new_adj.clamp_(1e-4, 1)
-    # remove self loops
-    torch.diagonal(new_adj, dim1=1, dim2=2).zero_()
-    return new_adj
-
-
 class GraphSampler(SamplerWithBuffer):
+
+    NODE_FEATURES_INTERVAL = None
+    EDGE_FEATURES_INTERVAL = (1e-4, 1)
 
     def __init__(self, max_num_nodes=40, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -67,9 +59,10 @@ class GraphSampler(SamplerWithBuffer):
             sample.adj.grad.zero_()
 
             with torch.no_grad():
-                sample.adj = _normalize_graph(sample.adj)
+                sample.x, sample.adj = self._normalize_graph(sample.x, sample.adj)
 
             sample.adj.requires_grad_()
+            sample.x.requires_grad_()
 
         sample.detach_()
 
@@ -87,7 +80,7 @@ class GraphSampler(SamplerWithBuffer):
         adj = 0.1 + 0.1 * torch.randn((batch_size, self.max_num_nodes, self.max_num_nodes, self.num_edge_features),
                                       device=device)
         adj = adj.squeeze(-1)
-        adj = _normalize_graph(adj)
+        x, adj = self._normalize_graph(x, adj)
         mask = torch.ones((batch_size, self.max_num_nodes), dtype=torch.bool, device=device)
 
         if collate:
@@ -102,6 +95,24 @@ class GraphSampler(SamplerWithBuffer):
     def plot_sample(self, s: Tuple[DenseData, torch.Tensor], ax: plt.Axes) -> None:
         plot_graph(s[0], ax)
         ax.set_title(f'Label {s[1]}')
+
+    def _normalize_graph(self, x, adj):
+        # make symmetric
+        new_adj = (adj + torch.transpose(adj, 1, 2))
+        new_adj.div_(2)
+        # remove self loops
+        torch.diagonal(new_adj, dim1=1, dim2=2).zero_()
+        # clamp between 0 and   1
+        if self.EDGE_FEATURES_INTERVAL is not None:
+            new_adj.clamp_(self.EDGE_FEATURES_INTERVAL[0], self.EDGE_FEATURES_INTERVAL[1])
+
+        # clamp x features
+        if self.NODE_FEATURES_INTERVAL is not None:
+            new_x = torch.clamp(x, self.NODE_FEATURES_INTERVAL[0], self.NODE_FEATURES_INTERVAL[1])
+        else:
+            new_x = x
+
+        return new_x, new_adj
 
 
 class GraphSBMSampler(GraphSampler):
