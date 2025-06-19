@@ -10,7 +10,7 @@ model:
   alpha_penalty: 0.1
   alpha_cd: 1
   alpha_ce: 2
-  lr: 0.01
+  lr: 0.001
   beta1: 0.0
 #  gamma: 0.99
   sampler:
