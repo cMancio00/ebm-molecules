@@ -30,68 +30,45 @@ For installing also development dependencies like notebook use:
 pip install ".[dev]"
 ```
 
-To run the jupyter server use:
-```bash
-jupyter lab --no-browser --port=8888 --autoreload --LabApp.token=''
-```
-
-And go to:
-http
 
 # Training example
 
-The model can be trained via `CLI` with the following command:
+The folder `.run` contains run configs for PyCharm.
 
-**Base Model (ridge, no Spectral Normalization)**
+Yaml files of the configuration for lightning are in `configs`.
+
+You can also use `CLI` depending on the domain:
+
+## MNIST
 ```bash
-python3 cli.py fit --data=DataModules.MNISTDataModule --model.batch_size=128 --model.mcmc_steps=60 --model.mcmc_learning_rate=10.0
+python images_exp.py \
+fit \
+--config \
+configs/MNIST/best_config.yaml \
+--trainer.logger.name=MNIST/train
+```
+## SBM
+```bash
+python graphs_exp.py \
+fit \
+--config \
+configs/SBM/best_config.yaml \
+--trainer.logger.name=SBM/train
 ```
 
-**Penalized Model (ridge, Spectral Normalization)**
+## QM9
 ```bash
-python3 cli.py fit --data=DataModules.MNISTDataModule --model.batch_size=128 --model.mcmc_steps=60 --model.mcmc_learning_rate=10.0 --trainer.callbacks SpectralNormalizationCallback
-```
-
-**version_2**
-CrossEntropy + Generation_Error, epochs=61 mcmc_steps=60 mcmc_learning_rate=10.0
-
-**version_3**
-Generation_Error, epochs=61, mcmc_steps=60 mcmc_learning_rate=10.0
-
-**version_4**
-CrossEntropy + Generation_Error, less mcmc_steps, smaller learning rate
-```bash
-python3 cli.py fit --data=DataModules.MNISTDataModule --model.batch_size=128 --model.mcmc_steps=20 --model.mcmc_learning_rate=10
-.0
-```
-
-**version_5**
-Generation_Error, less mcmc_steps
-```bash
-python3 cli.py fit --data=DataModules.MNISTDataModule --model.batch_size=128 --model.mcmc_steps=20 --model.mcmc_learning_rate=10
-```
-
-**version_6**
-CrossEntropy + Generation_Error + Regularization, less mcmc_steps
-```bash
-python3 cli.py fit --data=DataModules.MNISTDataModule --model.batch_size=128 --model.mcmc_steps=20 --model.mcmc_learning_rate=10
-```
-
-**version_7**
-Generation_Error + Regularization, less mcmc_steps
-```bash
-python3 cli.py fit --data=DataModules.MNISTDataModule --model.batch_size=128 --model.mcmc_steps=20 --model.mcmc_learning_rate=10
+python mol_exp.py \
+fit \
+--config \
+configs/QM9/best_config.yaml \
+--trainer.logger.name=QM9/train \
 ```
 
 **Activate the TensorBoard with Ipython:**
-```bash
-ipython
-```
+
 ```python
-%load_ext tensorboard
-```
-```python
-%tensorboard --logdir ./graph_logs
+tensorboard --logdir ./logs
 ```
 The TensorBoard will listen to port `6006`, so you can visit the [webApp](http://localhost:6006/).
 
