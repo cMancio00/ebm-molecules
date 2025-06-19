@@ -42,7 +42,6 @@ trainer:
       init_args:
         n_plot_during_generation: 15
         samples_to_plot: 10
-        mcmc_steps_multiplier: 1
   logger:
     class_path: TensorBoardLogger
     init_args:
